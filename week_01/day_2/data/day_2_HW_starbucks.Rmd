@@ -1,0 +1,98 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+Question 1
+Load in the dataset and have a look at it. What are the dimensions, variable types, variable names, etc.?
+
+```{r}
+starbucks_data <- read_csv("starbucks_drinkMenu_expanded.csv")
+glimpse(starbucks_data)
+```
+
+Question 2
+Let’s first investigate the calories of different drinks. Select the variables Beverage_category, Beverage, Beverage prep and Calories from your data. Since we are interested in the calorie content, check if there are any NA values in the data, and drop them if there are.
+
+```{r}
+head(starbucks_data)
+sub_starbucks_data <- select(starbucks_data, Beverage_category, Beverage, Beverage_prep, Calories) %>%
+  filter(!is.na(Calories))
+sub_starbucks_data
+```
+
+Question 3
+Create a new variable (column) called calorie_diff, which stores the difference between 135 calories (135 calories = 10 cubes of sugar!) and the calories in each drink. (hint: you’ll want to subtract the calories from 135 to see which drink have more or less than 10 cups of sugar).
+
+```{r}
+mutate(sub_starbucks_data, calorie_diff = 135 - Calories)
+```
+
+Question 4
+Summarise the mean number of calories in each beverage_category. Which 3 drinks have the most calories? Which 3 drinks have the least? Write a small summary of your findings.
+
+```{r}
+average_calories_in_each_beverage_category <- starbucks_data %>%
+  select(Beverage_category, Calories) %>%
+  group_by(Beverage_category) %>%
+  mutate(average_calories = mean(Calories))
+average_calories_in_each_beverage_category
+
+```
+
+```{r}
+three_drinks_with_most_calories <- average_calories_in_each_beverage_category %>%
+  arrange(desc(average_calories))
+three_drinks_with_most_calories
+```
+
+```{r}
+three_drinks_with_least_calories <- average_calories_in_each_beverage_category %>%
+  arrange(average_calories)
+three_drinks_with_least_calories
+```
+
+Question 5
+Let’s look at this a different way. What is the average number of calories in each Beverage_prep type?
+
+GRRRR!
+
+```{r}
+average_calories_in_each_beverage_PREP_category <- starbucks_data %>%
+  select(Beverage_prep, Calories)  %>%
+  group_by(Beverage_prep) %>%
+  arrange(Beverage_prep) %>%
+  mutate(average_calories_PREP = mean(Calories))
+average_calories_in_each_beverage_PREP_category
+```
+
+Question 6
+Which Beverage_prep type contains more than the average calories of all drinks?
+Hint: to answer this, you’ll have to first figure out what the average calories across all drinks are, and then use that as a filter for the grouped Beverage_prep data.
+
+```{r}
+average_calories_beverage_PREP = mean(unique(average_calories_in_each_beverage_PREP_category$average_calories_PREP))
+average_calories_beverage_PREP
+```
+
+```{r}
+Beverage_prep_with_more_then_average_calories <- starbucks_data %>%
+  select(Beverage_prep, Calories) %>%
+  group_by(Beverage_prep) %>%
+  filter(Calories > average_calories_beverage_PREP)
+unique(Beverage_prep_with_more_then_average_calories$Calories)
+```
+
+Question 7
+Which is the best type of coffee drink to get if you’re worried about consuming too many calories?
+
+```{r}
+three_drinks_with_least_calories <- average_calories_in_each_beverage_category %>%
+  arrange(average_calories)
+three_drinks_with_least_calories
+```
