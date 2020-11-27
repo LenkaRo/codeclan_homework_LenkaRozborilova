@@ -90,12 +90,12 @@ Mode <- function(x) {
 }
 
 # call new function Mode onto vector Authors -> most frequent writer is Stephen King
-Mode(Authors)
+most_frequent_author <- Mode(Authors)
 
-# How many titles did he write -> 
-books_without_NA %>% 
-  filter(authors == "Stephen King") %>% 
-  summarise(count_titles_Stephen_King = n())
+# How many titles did the most frequent author write? 37
+books_without_NA %>%
+  filter(authors == most_frequent_author) %>% 
+  summarise(count_titles = n())
 ```
 
 
