@@ -1,0 +1,148 @@
+---
+title: "`dplyr` Weekend Homework"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+    css: ../../../styles.css
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+```
+<br>
+
+
+
+As this is your first weekend homework, here are some tips: 
+
+* Try to schedule some time in your weekend to work on the homework so it's not suddenly Monday morning and you haven't gotten started yet (it happens).
+* Remember that the weekend homework is for your learning, so try to use it as an opportunity to apply and consolidate everything you've learned in the week.
+* Also use it as an opportunity to spend a bit more time making your code readable and reproducible, by practising commenting and writing some text around your steps and findings. You will thank yourself later! 
+  * This will be especially useful for this specific weekend homework as it's very open-ended and you will eventually forget your own thought process
+* A bit obvious, but don't spend your entire weekend working on the homework! Remember to spend time doing things you enjoy and rest up ahead of the following week.
+
+The data for this weekend homework is scraped from Goodreads (a website all about books) and made publicly available on Kaggle. You can read more about the data [here](https://www.kaggle.com/jealousleopard/goodreadsbooks).
+
+# MVP
+
+### First steps
+
+Load necessary packages and read in `books.csv`. Investigate dimensions, variables, missing values - you know the drill!
+
+```{r}
+library(tidyverse)
+books <- read_csv("data/books.csv")
+```
+
+
+### Up to you
+
+Now it's up to you... For this weekend homework there will be no specific tasks, just you and this dataset! Using everything you've learned this week, try to describe/summarise at least 5 things about this dataset - using R and the tidyverse of course! Feel free to find and use new functions if there is something that the tidyverse doesn't offer, but do try to use this homework to apply what you have learned this week. Be prepared to share one of your findings on Monday!
+
+```{r}
+# Dimension of the data set is 8472 observations (rows) and 12 variables (columns)
+# There is both character and numeric values
+glimpse(books)
+
+
+# There’s 14 variables (bookID, title, ..publisher)
+names(books)
+```
+
+
+```{r}
+# There is 14 missing values in the data set Books
+sum(is.na(books))
+
+
+# Breaking down which variables (columns) have the NAs and how many
+missing_values_in_books <- books %>% 
+  summarise(across(.fns = ~sum(is.na(.x))))
+missing_values_in_books 
+
+
+# Removing all observations (rows) containing missing values
+books_without_NA <- books %>% 
+  na.omit()
+
+
+# Checking how many observations (rows) were lost by removing those containing NA and Nan. Just 3.
+rows_lost = nrow(books) - nrow(books_without_NA)
+rows_lost 
+```
+
+
+```{r}
+# Which author has the most titles in the data set
+# There is a function called ‘mode’ in R, which returns the most frequent value. However, this function supports only numerical values. To support categorical values, we need to write a custom R function.
+
+# create a vector by subsetting the variable (column) authors
+Authors <- pull(books_without_NA, "authors")
+class(Authors)
+
+# mode function for character data type
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# call new function Mode onto vector Authors -> most frequent writer is Stephen King
+Mode(Authors)
+
+# How many titles did he write -> 
+books_without_NA %>% 
+  filter(authors == "Stephen King") %>% 
+  summarise(count_titles_Stephen_King = n())
+```
+
+
+```{r}
+# Mean and median of average book rating
+books_without_NA %>% 
+  select(title, authors, average_rating) %>% 
+  summarise(mean_avg_rating = mean(average_rating),
+            median_avg_rating = median(average_rating))
+
+
+# What book titles have 5* rating and at least one ratings_count
+books_without_NA %>% 
+  select(title, authors, average_rating, ratings_count) %>% 
+  filter(average_rating == 5,
+           ratings_count >= 1) 
+```
+
+
+```{r}
+# List titles that have more then 1 author and create a new variable (column) number_of_authors that says how many author collaborated on each book. Arrange it by the most authors.
+authors_collaboration <- books_without_NA %>% 
+  select(title, authors) %>% 
+  filter(str_detect(authors, "/")) %>% 
+  mutate(number_of_authors = str_count(authors, "/") + 1) %>% 
+  arrange(desc(number_of_authors))
+
+# Which title has the most authors and how many?
+authors_collaboration %>% 
+  select(title, number_of_authors) %>% 
+  slice_max(number_of_authors)
+
+# Rename the value of number_of_authors to THAT IS A LOT!, if it it more then 30, otherwise leave it as it is.
+authors_collaboration %>% 
+  select(title, number_of_authors) %>% 
+  mutate(
+    number_of_authors = if_else(number_of_authors > 30, "THAT\'S A BIG COLLAB!",
+                                                        as.character(number_of_authors)))
+
+# List titles that start with "A" and end with "g"
+books_without_NA %>% 
+  select(title, authors) %>%
+  filter(str_detect(title, "^A") & 
+         str_detect(title, "g$"))
+```
+
+
+### Remember
+
+Before you submit, go through your weekend homework and make sure your code is following best practices as laid out in the `coding_best_practice` lesson.
