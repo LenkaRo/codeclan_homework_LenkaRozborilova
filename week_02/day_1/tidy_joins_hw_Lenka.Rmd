@@ -130,8 +130,7 @@ extension_table
 ```
 
 
-
-![](images/all_joined.png)
+#image deleted for GitHub file size limitation
 
 ## `tidyr`
 
