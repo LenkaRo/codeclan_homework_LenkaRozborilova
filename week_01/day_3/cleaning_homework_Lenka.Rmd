@@ -2,12 +2,8 @@
 title: "Cleaning & Extra `dplyr` Homework"
 output:
   html_document:
-    toc: true
-    toc_float: true
-    number_sections: true
     df_print: paged
-    css: ../../../styles.css
-  pdf_document: default
+
 ---
 
 ```{r setup, include=FALSE}
