@@ -1,0 +1,170 @@
+---
+title: "Programming in R Homework - Answers"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+# MVP
+
+1. Find the weather forecast for the next three days online. Create a list of lists in which each inner list should be labelled with the name of the day of the week. Each inner list should contain named elements telling you the temperature, chance of rain and wind speed.
+
+```{r}
+weather_forecast_aviemore <- list(
+  "Thursday" = list("1°C", "15%", "4 m/s"),
+  "Friday" = list("4°C", "99%", "5 m/s"),
+  "Saturday" = list("5°C", "70%", "3 m/s")
+)
+```
+
+
+2. Using the list you've just made find:
+  i. The chance of rain tomorrow
+  ii. The wind speed on the day after tomorrow
+  iii. The temperature tomorrow.
+  
+```{r}
+i <- weather_forecast_aviemore$Thursday
+i[[2]]
+
+ii <- weather_forecast_aviemore$Friday
+ii[[3]]
+
+iii <- weather_forecast_aviemore$Thursday
+iii[[1]]
+```
+
+
+3. Find a 14 day forecast online and create a matrix of the forecasts for temperature, where each week is one row and columns correspond to days.
+
+```{r}
+weather_forecast_aviemore_14_days <- matrix(c(1, 4, 5, 3, 3, 5, 5, 5, 6, 5, 5, 5, 5, 4), nrow = 2, ncol = 7)
+weather_forecast_aviemore_14_days
+```
+
+
+You will want to give a name to the matrix you create.
+
+4. From the matrix you just made select:
+  i. The third day of the second week
+  ii. The whole second week
+  iii. The first, third and fifth days in both weeks.
+  
+```{r}
+weather_forecast_aviemore_14_days[2, 3]
+
+weather_forecast_aviemore_14_days[2, ]
+
+list(weather_forecast_aviemore_14_days[, 1],
+     weather_forecast_aviemore_14_days[, 3],
+     weather_forecast_aviemore_14_days[, 5])
+```
+  
+
+5. Write a function that pre-appends "The answer is: " to any character input, while for numeric input, it either just returns the number for numbers less than 10, or divides the number by 10 for numbers greater than 10. For anything else return "Invalid input".
+
+#is...else ladder
+
+```{r}
+my_function <- function(my_input){
+  
+  if (is.character(my_input)){
+    print(str_c("The answer is: ", my_input))
+    
+  } else if (is.numeric(my_input)){
+    
+      if (my_input < 10){
+        print(my_input)
+        
+      } else {
+        remainder <- my_input %% 10
+        remainder
+      }
+    
+  } else {
+    return("Invalid input")
+  }
+}
+
+
+my_function("Hello!")
+my_function(2)
+my_function(12)
+my_function(list(1, "hi"))
+```
+
+
+6. Write a function which checks if two vectors have the same elements. 
+  * If they have the same elements in the same order, return "Exactly the same"
+  * If they have the same elements but in a different order, return "The same"
+  * If they don't have the same elements, return "Different".
+  
+```{r}
+?sort
+?all
+?all.equal
+?identical
+?setequal
+
+vectors_equal <- function(x, y){
+  if (identical(x, y)){
+    return("Exactly the same")
+  
+  } else if (setequal(x, y)){
+    return("The same")
+    
+  } else {
+    return("Different")
+  }
+}
+
+vector_1 <- c("a", "b", "c")
+vector_2 <- c("a", "c", "b")
+
+vectors_equal(vector_1, vector_2)
+```
+
+
+<details>
+<summary>**Hints**</summary>
+* You can check if two vectors have the same elements but in a different order by using `sort` to sort each vector first and then checking if they are equal.
+* Have a look at the `all()` function
+</details>
+</blockquote>
+
+# Extension
+
+7. Write code that prints a multiplication table for numbers up to 12. i.e. there will be 12 rows and 12 columns, and each element should be the row number multiplied by the column number.
+
+```{r}
+my_vector <- capture.output(
+for (x in 1:12){
+  for (y in 1:12){
+    print(x * y)
+  }
+})
+
+matrix(my_vector, nrow = 12, ncol = 12)
+
+```
+
+
+*From: https://adriann.github.io/programming_problems.html*
+
+8. Write a function that takes a vector, and creates a text art histogram, like the one below.
+
+You may want to use the function `cat()`. This is similar to `print()`, but prints directly, without vector markers. You can also include newlines `"\n"` when using `cat()`.
+
+```
+1 | ***
+2 | *
+3 | *******
+4 | ****
+5 | **
+```
+
