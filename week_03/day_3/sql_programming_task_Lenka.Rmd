@@ -1,0 +1,112 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("~/acme_credentials.R")
+```
+
+```{r}
+library(RPostgres)
+```
+
+```{r}
+db_connection <- dbConnect(
+  drv = Postgres(),
+  user = acme_user,
+  password = acme_password,
+  dbname = "acme_pool",
+  host = "db-postgresql-lon1-94437-do-user-4831272-0.a.db.ondigitalocean.com",
+  port = 25061,
+  bigint = "numeric"
+)
+```
+
+```{r}
+dbIsValid(db_connection)
+```
+
+```{r}
+dbListTables(db_connection)
+```
+
+```{r}
+dbListFields(db_connection, "employees")
+```
+
+# 4 Get the records of all employees, adding a field full_name containing the first_name and last_name of each employee separated by a space.
+
+```{r}
+employees <- dbGetQuery(db_connection, "SELECT * FROM employees")
+```
+
+```{r}
+employees
+```
+```{r}
+library(tidyverse)
+```
+
+```{r}
+employees <- employees %>% 
+  mutate(full_name = paste(first_name, last_name, sep = " "))
+```
+# 5 Get all employees records again, but this time listing their team name (as team_name), rather than their team_id
+
+```{r}
+employees <- employees %>% 
+  rename(team_name = team_id)
+employees
+```
+
+# 6 Obtain a breakdown of the number of employees per team. Order the table by decreasing number of employees. Include all teams, even if they have no employees.
+
+```{sql, connection = db_connection, output.var = "employees_team"}
+SELECT 
+	team_id,
+	COUNT(id) AS num_of_employees
+FROM employees
+GROUP BY team_id
+ORDER BY num_of_employees DESC;
+```
+
+```{r}
+employees_team
+```
+# 7 AcmeCorp management want to send an email survey to each of their employees. However, they are worried that some of the employees may not receive the email either because their email addresses may be invalid (in that they don’t contain an ‘@’ symbol), or they may not have a stored email address at all. Can you find all these employees?
+
+```{sql, connection = db_connection, output.var = "employees_no_valid_email"}
+SELECT
+	*
+FROM employees 
+WHERE email IS NULL OR email NOT LIKE '%@%'
+```
+
+```{r}
+employees_no_valid_email
+```
+ 
+# Extentions
+
+# 8 Which of the employees provided the most recent feedback? What was the date of this feedback?
+
+```{sql, connection = db_connection, output.var = "employee_most_recent_feedback"}
+SELECT 
+	e.first_name,
+	e.last_name,
+	f.date
+FROM
+	employees AS e INNER JOIN feedbacks AS f 
+	ON e.id = f.employee_id 
+ORDER BY date DESC NULLS LAST 
+LIMIT 1;
+```
+
+```{r}
+employee_most_recent_feedback
+```
+
+# 9 You are chatting with one of the AcmeCorp employees, and she mentions that one of the teams in the corporation has some employees whose stored first_name contains only their first initial, e.g. “D” instead of “Dionne”, “C” instead of “Charles”. Can you find the name of the team that she is most likely referring to (i.e. which team has the highest number of employees with single initial first_names)`?
+
+
