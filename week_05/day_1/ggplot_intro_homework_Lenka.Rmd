@@ -53,7 +53,7 @@ What is the distribution of backpack weights that students are carrying? Choose 
 ```{r}
 ggplot(backpack) +
   aes(x = backpack_weight) +
-  geom_histogram(fill = "steel blue", color = "dark blue") +
+  geom_histogram(fill = "steel blue", color = "dark blue", bins = 20) +
   scale_x_continuous(breaks = seq(0, 40, by = 5)) +
   scale_y_continuous(breaks = seq(0, 13, by = 2)) +
   labs(
@@ -76,7 +76,7 @@ Are there differences in backpack weight between sex?
 ```{r}
 ggplot(backpack) +
   aes(x = backpack_weight, fill = sex) +
-  geom_histogram(col = "white") +
+  geom_histogram(col = "white", bins = 20) +
   scale_x_continuous(breaks = seq(0, 40, by = 10)) +
   scale_y_continuous(breaks = seq(0, 13, by = 2)) +
   facet_wrap(~ sex) +
@@ -158,6 +158,8 @@ backpack %>%
 # Both plots have got a liner regression line drawn into them to show the "steepness" of the line
 # The facet_wrap function respects the scale. Thus it is clear that female students tend to carry heavier backpacks the higher their body weight is compared to male students.
 # Both are showing a positive correlation tho, female just steeper (slope 0.84 vs 0.41)
+
+## The line is rather confusing here, looking at the graphs, on a first glimpse you might think it suggests there is a significant correlation between the two variables. Regarding to the coefficient of determination (R^2) our model is rather poor.
 ```
 
 
@@ -168,7 +170,7 @@ What **proportion** of students report back pain?
 ```{r}
 ggplot(backpack) +
   aes(x = back_problems) +
-  geom_bar(fill = c("salmon", "turquoise")) +
+  geom_bar(fill = c("firebrick1", "deepskyblue3")) +
   labs(
     x = "Back problem",
     y = "Number of students",
@@ -192,17 +194,18 @@ Is this proportion different between men and women?
 
 ```{r}
 ggplot(backpack) +
-  aes(x = back_problems, fill = sex) +
-  geom_bar() +
-  facet_wrap(~ sex) +
-  labs(
-    x = "Back problem",
-    y = "Number of students",
-    title = "Proportion of students with and without a back pain",
-    subtitle = "Depending on the students' gender"
-  )
+  aes(x = sex) +
+  geom_bar(
+    aes(fill = back_problems), 
+        position = "fill") +
+  scale_fill_manual(
+    values = c("Yes" = "firebrick1", 
+               "No" = "deepskyblue3")) + 
+  labs(x = NULL,
+       y = "Proportion of Students \n") +
+  theme_minimal()
 
-# This is two bar charts showing the proportion of students with and without a back pain depending on their gender.
+# This is a bar chart showing the proportion of students with and without a back pain depending on their gender.
 # Clearly, males suffer from back pain more often than females.
 ```
 
