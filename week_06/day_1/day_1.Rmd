@@ -1,0 +1,370 @@
+---
+title: "Probability homework"
+output:
+  html_document:
+    df_print: paged
+---
+
+# MVP - The Titanic
+
+A data set detailing the survival or death of passengers and crew members on the RMS Titanic is given in the `data` folder. Some time after the disaster a journalist wrote that crew members were *more likely* to have survived the sinking than passengers. This was disputed by a descendant of one of the surviving crew members, who suggested that the opposite was true, i.e. passengers were *more likely* to have survived than crew.  
+
+You're going to calculate the conditional probabilities survived|crew and survived|passenger to settle this dispute.
+
+Have a look at the distinct values of the `class` variable, this will tell you whether each individual was a passenger (1st, 2nd or 3rd class) or a member of the crew (treat restaurant staff as crew)
+
+**Loading packages**
+
+You may want to use `prob` and `gtools` later in the homework, and the `tidyverse` for this section, but if you load `prob` after `tidyverse`, `dplyr::filter()` will be masked. So load your packages in this order:
+
+```{r}
+library(prob)
+library(gtools)
+library(tidyverse)
+```
+
+```{r}
+titanic <- read_csv("data/titanic.csv")
+
+unique(titanic$class)
+```
+
+
+**Hints**
+
+* You may want to create a `crew` column containing values `TRUE` or `FALSE` to help with this
+* For P(survived|crew) think 'what proportion of the crew survived?', and similar for P(survived|passenger) 
+
+```{r}
+titanic <- titanic %>% 
+  mutate(
+    crew = case_when(
+      class %in% c("3rd", "2nd", "1st") ~ FALSE,
+      TRUE                              ~ TRUE
+    )
+  )
+```
+
+```{r}
+# total number of people aboard
+# 2207
+titanic %>% 
+  nrow()
+
+## number of passengers that survived
+## 500
+titanic %>% 
+  filter(crew == FALSE) %>% 
+  filter(survived == "yes") %>% 
+  nrow()
+
+## number of members of crew that survived
+## 211
+titanic %>% 
+  filter(crew == TRUE) %>% 
+  filter(survived == "yes") %>%
+  nrow()
+
+## total number number of passengers
+# 1317
+titanic %>% 
+  filter(crew == FALSE) %>% 
+  nrow()
+
+## total number number of members of crew
+# 890
+titanic %>% 
+  filter(crew == TRUE) %>% 
+  nrow()
+
+#P(survived|passenger)
+# 0.3796507
+500/1317
+
+#P(survived|crew)
+# 0.2370787
+211/890
+
+# Conclusion, passengers had higher probability they'll survive
+```
+
+
+
+# MVP and Extension - Probability problems
+
+Today was pretty full-on! Here are some problems to help you consolidate what you learned. Feel free to work on paper or in `R`, whichever you are most comfortable with:
+
+**MVP - try _four_ of the problems**  
+**Extension - try more than four!**
+
+
+1. If I roll a six-sided dice once, what is the probability of getting a number less than 5?
+
+```{r}
+rolldie(1) %>% 
+  nrow()
+
+rolldie(1) %>% 
+  filter(X1 < 5) %>% 
+  nrow()
+
+4/6
+# 0.6666667
+```
+
+
+2. How many outcomes are there in the sample space of an experiment in which we toss three dice?
+
+```{r}
+rolldie(3) %>% 
+  nrow()
+
+# 216
+```
+
+
+3. In an experiment where we roll four dice:
+
+  i. how many outcomes are in the event `total_equals_5_6_7` (i.e. the total of the four dice equals 5, 6 or 7)?
+  ii. what is the probability of this event?
+  iii. what assumptions do we apply in answering part ii?
+  
+  
+```{r}
+# number of all the combinations
+# 1296
+rolldie(4) %>% 
+  nrow()
+
+# number of rolls that give total 5, 6 or 7
+# 34
+rolldie(4) %>% 
+  mutate(
+    total = rowSums(.)
+  ) %>% 
+  filter(total %in% 5:7) %>% 
+  nrow()
+
+# probability of rolling the total of 5, 6, or 7 on four dice
+# 0.02623457
+34/1296
+
+# what assumptions do we apply in answering part ii?
+# the dice are fair, each side can occur equally likely
+```
+  
+
+4. Five chairs are placed in a row in a room, along with five people of differing height. The people sit down randomly on the chairs. What is the probability that they sit in order of decreasing height, left to right?
+
+
+```{r}
+# order matters -> permutations
+# repeats not allowed
+
+# number of all permutations
+# 120
+permutations(
+  n = 5,
+  r = 5,
+  repeats.allowed = FALSE
+) %>% 
+as.tibble() %>% 
+nrow()
+
+1/120
+
+# OR simply
+# 120
+1/factorial(5)
+```
+
+
+5. I roll six dice:
+
+  i. what is the probability I see the numbers 6, 5, 4, 3, 2 and 1 in order on the dice, left to right?
+  ii. what is the probability I see one each of the numbers 6, 5, 4, 3, 2 and 1 on the dice regardless of order?
+  
+```{r}
+# sample space (all the possible outcomes)
+# 46656
+rolldie(6) %>% 
+  nrow()
+
+# what is the probability I see the numbers 6, 5, 4, 3, 2 and 1 in order on the dice, left to right?
+# 2.143347e-05
+
+1/46656
+
+# what is the probability I see one each of the numbers 6, 5, 4, 3, 2 and 1 on the dice regardless of order?
+# 0.0154321
+rolldie(6) %>% 
+  filter(
+    isin(., c(1, 2, 3, 4, 5, 6), ordered = FALSE)
+  ) %>% 
+nrow()
+
+720/46656
+
+# OR simply
+# 0.0154321
+factorial(6) * (1/46656)
+```
+  
+
+6. If I draw a single card from a 52-card deck, and it is black, what is the probability that its suit is spades? 
+
+
+```{r}
+# probability of drawing a single card from a 52-card deck, and it is black
+# P(B)
+1/2
+
+# what is the probability of a card being in suit spades and being black
+# P(A∩B)
+1/4
+
+# P(A|B) = P(A∩B) / P(B)
+(1/4) / (1/2)
+```
+
+
+7. Eight patients: Alice, Bob, Carmen, Dinesh, Ella, Fergus, Gianna and Henry are waiting to see a doctor, but only five appointment slots are left today. 
+
+```{r}
+patients <- c("Alice", "Bob", "Carmen", "Dinesh", "Ella", "Fergus", "Gianna", "Henry")
+```
+
+  i. In how many different orders can the doctor see patients today?
+
+```{r}
+# 6720
+permutations(
+  n = 8,
+  r = 5,
+  v = patients,
+  repeats.allowed = FALSE
+) %>% 
+as.tibble() %>% 
+nrow()
+
+# OR simply
+8*7*6*5*4
+```
+
+  
+  ii. What is the probability of Gianna and Danesh **both** being seen today?
+
+```{r}
+# total of all permutations of Gianna and Dinesh both being seen today 
+# 2400
+permutations(
+  n = 8,
+  r = 5,
+  v = patients,
+  repeats.allowed = FALSE
+) %>% 
+as.tibble() %>% 
+filter(
+  isin(., c("Gianna", "Dinesh"), ordered = FALSE)
+) %>% 
+nrow()
+
+# probability of both of them being seen today
+# 0.3571429
+2400/6720
+```
+
+  
+  iii. What is the probability of Gianna being seen **before** Dinesh today?
+
+```{r}
+# total of all permutations of Gianna being seen before Dinesh today 
+# 1200
+permutations(
+  n = 8,
+  r = 5,
+  v = patients,
+  repeats.allowed = FALSE
+) %>% 
+as.tibble() %>% 
+filter(
+  isin(., c("Gianna", "Dinesh"), ordered = TRUE)
+) %>% 
+nrow()
+
+# note OR just simply 1/2 of the above where the order did not matter
+
+# probability of Gianna being seen **before** Dinesh today
+# 0.1785714
+1200/6720
+```
+
+  
+  iv. **(harder)** Carmen and Henry have now been triaged as high priority and will be seen in the first two available slots, although their order hasn't yet been determined. In how many different orders can the patients now be seen?
+
+```{r}
+# create a subset vector of all the patience apart from Carmen and Henry
+patients_rest <- c("Alice", "Bob", "Dinesh", "Ella", "Fergus", "Gianna")
+
+# tibble of all permutations of C and H being seen subsequently 
+# adding a temporary column temp_col to map the rows between tibbles using merge function
+# 2 permutations
+priority <- permutations(
+  n = 2,
+  r = 2,
+  v = c("Carmen", "Henry")
+) %>% 
+as.tibble() %>% 
+mutate(
+  temp_col = 1
+)
+
+# tibble of all permutations of any three patients (apart from C and H)
+# adding a temporary column temp_col to map the rows between tibbles using merge function
+# 120 permutations
+rest <- permutations(
+  n = 6,
+  r = 3,
+  v = patients_rest
+) %>%
+as.tibble() %>% 
+mutate(
+  temp_col = 1
+)
+
+# total number of combinations where C and H go first and then any three of the remaining patients
+#240
+join <- merge(priority, rest, by = "temp_col") 
+
+join
+
+join %>% 
+  nrow()
+
+# OR simply
+# 240
+2 * 1 * 6 * 5 * 4
+```
+
+
+8. If order is not significant, how many ways are there to select a 5 student quiz team from a group of 8 students?
+
+```{r}
+combinations(
+  n = 8,
+  r = 5
+) %>% 
+as.tibble() %>% 
+nrow()
+```
+
+
+9. **(harder)** How would your answer for question 8 change if a team captain had to be selected for each team?
+
+```{r}
+56 * 5
+```
+
+
+
+
