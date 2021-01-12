@@ -1793,7 +1793,52 @@ titanic %&gt;%
 # 0.2370787
 211/890</code></pre>
 <pre><code>## [1] 0.2370787</code></pre>
-<pre class="r"><code># Conclusion, passengers had higher probability they&#39;ll survive</code></pre>
+<pre class="r"><code># Conclusion, passengers had higher probability they&#39;ll survive
+
+# OR simply using CONTINGENCY TABLE
+library(janitor)</code></pre>
+<pre><code>## Warning: package &#39;janitor&#39; was built under R version 3.6.2</code></pre>
+<pre><code>## 
+## Attaching package: &#39;janitor&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     chisq.test, fisher.test</code></pre>
+<pre class="r"><code>titanic %&gt;% 
+  tabyl(crew, survived) %&gt;% 
+  adorn_totals(where = c(&quot;row&quot;, &quot;col&quot;)) %&gt;% 
+  adorn_title()</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":[1],"type":["chr"],"align":["left"]},{"label":["survived"],"name":[2],"type":["chr"],"align":["left"]},{"label":[""],"name":[3],"type":["chr"],"align":["left"]},{"label":[""],"name":[4],"type":["chr"],"align":["left"]}],"data":[{"1":"crew","2":"no","3":"yes","4":"Total"},{"1":"FALSE","2":"817","3":"500","4":"1317"},{"1":"TRUE","2":"679","3":"211","4":"890"},{"1":"Total","2":"1496","3":"711","4":"2207"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#P(survived|passenger)
+# 0.3796507
+500/1317</code></pre>
+<pre><code>## [1] 0.3796507</code></pre>
+<pre class="r"><code>#P(survived|crew)
+# 0.2370787
+211/890</code></pre>
+<pre><code>## [1] 0.2370787</code></pre>
+<pre class="r"><code># OR simply using RELATIVE CONTINGENCY TABLE where TOTAL is = 1 
+library(janitor)
+titanic %&gt;% 
+  tabyl(crew, survived) %&gt;% 
+  adorn_totals(where = c(&quot;row&quot;, &quot;col&quot;)) %&gt;% 
+  adorn_percentages(denominator = &quot;all&quot;) %&gt;% 
+  adorn_rounding(digits = 6) %&gt;% 
+  adorn_title()</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":[1],"type":["chr"],"align":["left"]},{"label":["survived"],"name":[2],"type":["chr"],"align":["left"]},{"label":[""],"name":[3],"type":["chr"],"align":["left"]},{"label":[""],"name":[4],"type":["chr"],"align":["left"]}],"data":[{"1":"crew","2":"no","3":"yes","4":"Total"},{"1":"FALSE","2":"0.370186","3":"0.226552","4":"0.596738"},{"1":"TRUE","2":"0.307657","3":"0.095605","4":"0.403262"},{"1":"Total","2":"0.677843","3":"0.322157","4":"1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#P(survived|passenger)
+0.226552/0.596738</code></pre>
+<pre><code>## [1] 0.3796507</code></pre>
+<pre class="r"><code>#P(survived|crew)
+0.095605/0.403262</code></pre>
+<pre><code>## [1] 0.2370791</code></pre>
 </div>
 <div id="mvp-and-extension---probability-problems" class="section level1">
 <h1>MVP and Extension - Probability problems</h1>
@@ -1861,13 +1906,8 @@ permutations(
   r = 5,
   repeats.allowed = FALSE
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 nrow()</code></pre>
-<pre><code>## Warning: `as.tibble()` is deprecated as of tibble 2.0.0.
-## Please use `as_tibble()` instead.
-## The signature and semantics have changed, see `?as_tibble`.
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_warnings()` to see where this warning was generated.</code></pre>
 <pre><code>## Warning: The `x` argument of `as_tibble.matrix()` must have unique column names if `.name_repair` is omitted as of tibble 2.0.0.
 ## Using compatibility `.name_repair`.
 ## This warning is displayed once every 8 hours.
@@ -1938,7 +1978,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 nrow()</code></pre>
 <pre><code>## [1] 6720</code></pre>
 <pre class="r"><code># OR simply
@@ -1955,7 +1995,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 filter(
   isin(., c(&quot;Gianna&quot;, &quot;Dinesh&quot;), ordered = FALSE)
 ) %&gt;% 
@@ -1976,7 +2016,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 filter(
   isin(., c(&quot;Gianna&quot;, &quot;Dinesh&quot;), ordered = TRUE)
 ) %&gt;% 
@@ -2002,7 +2042,7 @@ priority &lt;- permutations(
   r = 2,
   v = c(&quot;Carmen&quot;, &quot;Henry&quot;)
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 mutate(
   temp_col = 1
 )
@@ -2015,7 +2055,7 @@ rest &lt;- permutations(
   r = 3,
   v = patients_rest
 ) %&gt;%
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 mutate(
   temp_col = 1
 )
@@ -2044,7 +2084,7 @@ join</code></pre>
   n = 8,
   r = 5
 ) %&gt;% 
-as.tibble() %&gt;% 
+as_tibble() %&gt;% 
 nrow()</code></pre>
 <pre><code>## [1] 56</code></pre>
 <ol start="9" style="list-style-type: decimal">

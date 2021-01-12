@@ -86,6 +86,36 @@ titanic %>%
 211/890
 
 # Conclusion, passengers had higher probability they'll survive
+
+# OR simply using CONTINGENCY TABLE
+library(janitor)
+titanic %>% 
+  tabyl(crew, survived) %>% 
+  adorn_totals(where = c("row", "col")) %>% 
+  adorn_title()
+
+#P(survived|passenger)
+# 0.3796507
+500/1317
+
+#P(survived|crew)
+# 0.2370787
+211/890
+
+# OR simply using RELATIVE CONTINGENCY TABLE where TOTAL is = 1 
+library(janitor)
+titanic %>% 
+  tabyl(crew, survived) %>% 
+  adorn_totals(where = c("row", "col")) %>% 
+  adorn_percentages(denominator = "all") %>% 
+  adorn_rounding(digits = 6) %>% 
+  adorn_title()
+
+#P(survived|passenger)
+0.226552/0.596738
+
+#P(survived|crew)
+0.095605/0.403262
 ```
 
 
@@ -168,7 +198,7 @@ permutations(
   r = 5,
   repeats.allowed = FALSE
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 nrow()
 
 1/120
@@ -244,7 +274,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 nrow()
 
 # OR simply
@@ -263,7 +293,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 filter(
   isin(., c("Gianna", "Dinesh"), ordered = FALSE)
 ) %>% 
@@ -286,7 +316,7 @@ permutations(
   v = patients,
   repeats.allowed = FALSE
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 filter(
   isin(., c("Gianna", "Dinesh"), ordered = TRUE)
 ) %>% 
@@ -314,7 +344,7 @@ priority <- permutations(
   r = 2,
   v = c("Carmen", "Henry")
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 mutate(
   temp_col = 1
 )
@@ -327,7 +357,7 @@ rest <- permutations(
   r = 3,
   v = patients_rest
 ) %>%
-as.tibble() %>% 
+as_tibble() %>% 
 mutate(
   temp_col = 1
 )
@@ -354,7 +384,7 @@ combinations(
   n = 8,
   r = 5
 ) %>% 
-as.tibble() %>% 
+as_tibble() %>% 
 nrow()
 ```
 
