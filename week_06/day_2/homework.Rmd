@@ -1,0 +1,165 @@
+---
+title: "Distributions homework"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+You are given a cut of a database containing details of mobile phones and their customer reviews on an online shopping site in file `20190928-items.csv`. Each row in the data corresponds to one model of mobile phone. Use the data to answer the following questions.  
+
+As part of the MVP we want you not to just run the code but also have a go at **intepreting the results** - this is the **main learning objective** from this homework. Don't worry if you aren't sure, it's ok to get it wrong, but give it a go, through trying we will learn.  
+
+# MVP
+
+## Question 1
+
+Load the data, `clean_names()` and explore it.
+
+```{r}
+library(janitor)
+library(tidyverse)
+
+phones <- read_csv("data/20190928-items.csv") %>% clean_names()
+```
+
+
+<br>
+
+## Question 2
+
+Find the brand with the highest numbers of phones in the dataset.
+
+```{r}
+phones %>% 
+  group_by(brand) %>% 
+  summarise(count = n()) %>% 
+  slice_max(count)
+```
+
+
+<br>
+
+## Question 3
+
+For your top brand, plot the distribution of phone ratings as a probability density, overlaying a fitted normal distribution. Do you think the normal distribution provides a good model of these ratings?
+
+<br>
+[**Hint** - you will need to calculate the `mean()` and `sd()` of the ratings to plot the appropriate normal. Alternatively, investigate using the `fitdistr()` function in the `MASS` package]
+
+```{r}
+phones <- phones %>% 
+  select(brand, rating) %>% 
+  filter(brand == "Samsung") 
+```
+
+```{r}
+# "VISUALIZE your data before you do any statistics!"
+phones %>% 
+  ggplot() +
+  aes(x = rating) +
+  geom_histogram(col = "white", bins = 25)
+```
+
+```{r}
+# Is the sample distribution normal?
+
+## q-q plot
+library(ggpubr)
+
+ggqqplot(phones$rating)
+
+## OR explicitly Shapiro-Wilks' method
+## H0: sample distribution is normal;
+## H1: sample distribution is not normal
+## p-value = 1.088e-12
+## p-value <<<, test is not significant, the sample distribution is normal
+shapiro.test(phones$rating) 
+```
+
+
+```{r}
+phones_stats <- phones %>% 
+  summarise(
+    num = n(),
+    mean = mean(rating),
+    sd = sd(rating)
+  )
+
+phones_stats
+```
+
+```{r}
+phones %>% 
+  ggplot() +
+  aes(x = rating) +
+  geom_histogram(aes(y = ..density..), col = "white", bins = 25) +
+  stat_function(
+    fun = dnorm,
+    args = list(
+      mean = phones_stats$mean,
+      sd = phones_stats$sd
+    ),
+  col = "red"
+  )
+```
+
+
+<br>
+
+## Question 4
+
+We can be more quantitative in comparing the distribution of top brand ratings with a normal distribution. You calculated the `mean()` and `sd()` of your distribution in an earlier question. Use these values to calculate the *proportions* of ratings within one-, two- and three standard deviations of the mean. Compare these proportions with those you expect for a normal distribution.  
+
+```{r}
+# the values are normally distributed, I can use standardized variable (z-score) to evaluate how far away we are from the mean
+## creating new column displaying z-score
+## creating new column with three categories depending on the z-score
+phones_z_score_SD <- phones %>% 
+  mutate(
+    z_score_rating = scale(rating)
+  ) %>% 
+  mutate(
+    how_far_from_the_mean = case_when(
+      z_score_rating <= -3 | z_score_rating >= 3 ~ "3 SD",
+      z_score_rating <= -2 | z_score_rating >= 2 ~ "2 SD",
+      TRUE                                       ~ "1 SD",
+    )
+  )
+
+phones_z_score_SD
+
+# *proportions* of ratings within one-, two- and three standard deviations away of the mean 
+## displayed in frequency table
+freq_table_phones <- phones_z_score_SD$how_far_from_the_mean %>% 
+  tabyl() %>% 
+  as_tibble()
+
+freq_table_phones
+
+## displayed in a graph
+freq_table_phones %>% 
+  ggplot() +
+  aes(x = ., y = percent) +
+  geom_col() +
+  theme_light() +
+  labs(
+    x = "none",
+    title = "Proportion of phone ratings",
+    subtitle = "within one-, two- and three standard deviations away of the mean"
+  )
+```
+
+
+
+# Extension
+
+Investigate the use of the `qqnorm()` plot in R to determine whether data is normally distributed. What is a 'quantile-quantile plot'? What do we expect to see in a `qqnorm()` plot if data is nearly normally distributed?
+
+Here are a few resources:
+
+* [Understanding QQ plots](https://data.library.virginia.edu/understanding-q-q-plots/)
+* [Short video tutorial](https://www.youtube.com/watch?v=Erze9pNIX8A) (the presenter doesn't use RStudio, but the commands are the same. Just ignore the final comments on hypothesis tests for now.)
+* [Longer video tutorial](https://www.youtube.com/watch?v=smJBsZ4YQZw)
+* [Quantile-Quantile plots - R Base Graphs](http://www.sthda.com/english/wiki/qq-plots-quantile-quantile-plots-r-base-graphs)
+
