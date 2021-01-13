@@ -121,8 +121,9 @@ phones_z_score_SD <- phones %>%
   ) %>% 
   mutate(
     how_far_from_the_mean = case_when(
-      z_score_rating <= -3 | z_score_rating >= 3 ~ "3 SD",
-      z_score_rating <= -2 | z_score_rating >= 2 ~ "2 SD",
+      z_score_rating <= -3 | z_score_rating >= 3 ~ "outlier",
+      z_score_rating <= -2 | z_score_rating >= 2 ~ "3 SD",
+      z_score_rating <= -1 | z_score_rating >= 1 ~ "2 SD",
       TRUE                                       ~ "1 SD",
     )
   )
@@ -155,6 +156,8 @@ freq_table_phones %>%
 # Extension
 
 Investigate the use of the `qqnorm()` plot in R to determine whether data is normally distributed. What is a 'quantile-quantile plot'? What do we expect to see in a `qqnorm()` plot if data is nearly normally distributed?
+
+A quantile-quantile (Q-Q) plot, shows the distribution of the data against the expected normal distribution. If the data is non-normal, the points form a curve that deviates markedly from a straight line.
 
 Here are a few resources:
 
