@@ -121,10 +121,10 @@ phones_z_score_SD <- phones %>%
   ) %>% 
   mutate(
     how_far_from_the_mean = case_when(
-      z_score_rating <= -3 | z_score_rating >= 3 ~ "outlier",
-      z_score_rating <= -2 | z_score_rating >= 2 ~ "3 SD",
-      z_score_rating <= -1 | z_score_rating >= 1 ~ "2 SD",
-      TRUE                                       ~ "1 SD",
+      z_score_rating <= -3 | z_score_rating >= 3 ~ "outlier range",
+      z_score_rating <= -2 | z_score_rating >= 2 ~ "3 SD range",
+      z_score_rating <= -1 | z_score_rating >= 1 ~ "2 SD range",
+      TRUE                                       ~ "1 SD range",
     )
   )
 
@@ -132,16 +132,29 @@ phones_z_score_SD
 
 # *proportions* of ratings within one-, two- and three standard deviations away of the mean 
 ## displayed in frequency table
-freq_table_phones <- phones_z_score_SD$how_far_from_the_mean %>% 
+freq_table_phones_freq <- phones_z_score_SD$how_far_from_the_mean %>% 
   tabyl() %>% 
   as_tibble()
 
-freq_table_phones
+freq_table_phones_freq
+
+stand_dev <- c("1SD", "2SD", "3SD", "outlier")
+
+freq_table_phones_cummulative <- freq_table_phones_freq %>% 
+  arrange(percent) %>% 
+  mutate(
+    cummulative = 1 - cumsum(percent)
+  ) %>% 
+  select(cummulative) %>% 
+  pull()
+  
+freq_table_phones_SD <- tibble(stand_dev, freq_table_phones_cummulative)
+freq_table_phones_SD
 
 ## displayed in a graph
-freq_table_phones %>% 
+freq_table_phones_SD %>% 
   ggplot() +
-  aes(x = ., y = percent) +
+  aes(x = stand_dev, y = freq_table_phones_cummulative) +
   geom_col() +
   theme_light() +
   labs(
