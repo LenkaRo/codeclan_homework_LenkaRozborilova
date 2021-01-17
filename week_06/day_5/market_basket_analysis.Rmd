@@ -1,0 +1,149 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Market basket analysis (MBA) uses
+association rules mining looking at items bought together in a single "basket" purchase
+The association rules used for MBA use the probability principles 
+
+Three values
+- support
+- confidence
+- lift
+
+```{r}
+library(tidyverse)
+library(arules)
+library(arulesViz)
+
+transactions <- read_csv("data/online_retail_subset.csv")
+```
+
+```{r}
+head(transactions)
+```
+
+# calculating "on paper"
+
+For the first section we are interested in the purchase of two particular items:
+
+item A - ‘HEART OF WICKER SMALL’ (StockCode 22469)
+item B - ‘LARGE CAKE TOWEL PINK SPOTS’ (StockCode 21110)
+
+1. Calculate the support for item A
+ (this will be the support for a single item)
+ 
+```{r}
+transactions %>% 
+  filter(StockCode == 22469) %>% 
+  nrow()
+
+nrow(transactions)
+
+# sup(A)
+110/30000
+```
+
+2. Calculate the support and confidence for rule (A→B)
+
+```{r}
+# keeping only those transactions that contained both A and B in "one basket"
+# 5
+transactions %>% 
+  select(InvoiceNo, StockCode, Description) %>% 
+  filter(StockCode == 22469 | StockCode == 21110) %>% 
+  arrange(InvoiceNo) %>% 
+  mutate(InvoiceNo_lag = lag(InvoiceNo)) %>% 
+  mutate(same_invoice = ifelse(InvoiceNo == InvoiceNo_lag, "yes", "no")) %>% 
+  mutate(Description_lag = lag(Description)) %>% 
+  mutate(same_item = ifelse(Description == Description_lag, "yes", "no")) %>% 
+  filter(same_invoice == "yes" & same_item == "no") %>% 
+  nrow()
+  
+# sup(A→B)
+5/30000
+
+# conf(A→B)
+0.00017/0.0037
+```
+
+3. Calculate the lift for (A→B)
+
+```{r}
+transactions %>% 
+  filter(StockCode == 21110) %>% 
+  nrow()
+
+nrow(transactions)
+
+# sup(B)
+14/30000
+
+# lift(A→B)
+0.00017/(0.0037 * 0.00047)
+```
+
+
+# calculating using R package arules
+
+Values:
+
+sup(A) 0.0037
+sup(B) 0.00047
+sup(A→B)  0.00017
+conf(A→B) 0.046
+lift(A→B) 98
+
+```{r}
+transactions_reformat <- transactions %>%
+  select(InvoiceNo, Description) %>%
+  drop_na()
+
+write_csv(transactions_reformat, "data/transactions_reformat.csv")
+
+apriori_format <- read.transactions("data/transactions_reformat.csv", format = "single", sep = ",", header = TRUE, cols = c("InvoiceNo", "Description"))
+
+class(transactions)
+```
+
+```{r}
+head(apriori_format)
+inspect(head(apriori_format))
+```
+
+
+```{r}
+# Create an item frequency plot for the top 20 items
+itemFrequencyPlot(apriori_format,topN=20,type="absolute")
+```
+
+
+```{r}
+# pass the minimum required support and confidence
+# Get the rules
+# set the left hand side to be “HEART OF WICKER SMALL” and find its antecedents
+rules <- apriori(apriori_format, parameter = list(supp = 0.0001, conf = 0.2),
+                 appearance = list(default = "rhs", lhs = "HEART OF WICKER SMALL"), # right hand side/left hand side
+                 control = list(verbose = FALSE))
+
+rules <- sort(rules, decreasing = TRUE, by = "confidence")
+
+inspect(rules)
+
+summary(rules)
+
+# interpretation: if someone buys HEART OF WICKER SMALL, they are 42% likely to buy HEART OF WICKER LARGE too
+```
+
+```{r}
+plot(rules,  
+     shading = "confidence")
+```
+
+
+
+
+
