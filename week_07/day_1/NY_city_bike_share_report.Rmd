@@ -1,18 +1,21 @@
 ---
-title: "NY City Bike Share"
+title: "New York City’s bike share 2018"
 author: "Lenka Rozborilova"
 date: "18/01/2021"
 output: html_document
-code_folding: hide
+df_print: paged
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, 
-                      results = "hide",
-                      error = FALSE,
-                      warning = FALSE,
-                      message = FALSE)
+# Don't include messages and warnings in all of knitted file
+# by setting warning = F, and message = F in the setup chunk below
+# can add echo = F if don't want any code
+
+knitr::opts_chunk$set(echo = F,
+                      warning = F, message = F, 
+                      results = F) 
 ```
+
 
 ```{r}
 library(tsibbledata)
@@ -20,10 +23,15 @@ library(tsibble)
 library(tidyverse)
 library(lubridate)
 library(slider)
+library(leaflet)
+library(fable)
+library(feasts)
+library(urca)
 ```
 
-The following report presents an insight into the New York City’s bike share system - one of the largest bike shares in the US. 
-The descriptive analysis was carried out on an available data set of 10 bikes that were monitored during the year of 2018.
+This report presents an insight into the New York City’s bike share system - one of the largest bike shares in the US. 
+The following descriptive and explanatory analysis was carried out on an available data set containing observations of 10 bikes monitored during the year of 2018.
+
 
 ```{r}
 #?nyc_bikes
@@ -39,7 +47,10 @@ index_var(nyc_bikes)
 key_vars(nyc_bikes)
 ```
 
-```{r}
+<details>
+<summary>**Data**</summary>
+
+```{r results = T}
 # create new columns: date, day, week day/weekend, month, year and duration (in sec and hrs)
 nyc_bikes_updated <- nyc_bikes %>% 
   select(-start_lat, -start_long, -end_lat, -end_long) %>% 
@@ -54,53 +65,116 @@ nyc_bikes_updated <- nyc_bikes %>%
     duration_hrs = as.numeric(duration, "hours")
   ) 
 
-nyc_bikes_updated 
+rmarkdown::paged_table(head(nyc_bikes_updated))
 ```
+</details>
+<br>
 
 ```{r}
 # visualization - bike hire throughout the year 2018, during the week, hire duration
 ```
 
-Here’s a graph of an average usage of a NYC City's bike throughout the year of 2018
+### Bike hire throughout the 2018
+* how many times was EACH bike hired daily on average 
+* the bike hire frequency went up during the summer months, with August being the busiest month of the year
+* the winter months were the most quiet ones
 
+<br>
 ```{r}
-# Here’s a graph of an average usage of 1 bike throughout the year of 2018
+# Here’s a graph of how many times an average is each bike used daily, observed throughout the year of 2018
+# We can see clearly see that the bike hire frequency goes up during the summer months, with August being the busiest month of the year. On the other hand, the winter months being the most quiet ones.
+# Fun fact, the busiest day of 2018 was 31st of Jan with nearly 5 bike hires of each bike on average
 nyc_bikes_updated %>%
-  index_by(date) %>% 
+  index_by(date) %>%  
   summarise(total = n()/10) %>% 
-  ggplot() + 
-  geom_line(size = 1, aes(x = date, y = total))
+  ggplot(aes(x = date, y = total)) + 
+  geom_line() +
+  theme_classic() +
+  scale_x_date(date_labels = "%b") +
+  geom_smooth(se = FALSE) +
+  labs(
+    x = "",
+    y = "bike hired (i-times)",
+    title = "Average daily bike hire in 2018"
+  )
+
+nyc_bikes_updated %>%
+  index_by(date) %>%  
+  summarise(total = n()/10) %>% 
+  arrange(desc(total)) 
 ```
 
-Bike usage throughout a day, split by week days and weekend days
 
+### Typical bike usage throughout a day
+* split by the week days and the weekend days
+* for the week days, the most popular bike hire times were 7-10AM and 5-8PM
+* for the weekend days, the most popular hours are spread over the daylight hours, between 10AM-6PM
+
+<br>
 ```{r}
-# bike usage throughout a day, split by week days and weekend days
-# The most popular bike hire times during the weekdays are 7-10AM and 5-8PM. These rush hours suggest people use the bikes to commute to work and than back home. Generarly, the middle of the day is less busy.
-# While over the weekend days, the peak is spread over the day hours 10AM-6PM, presumably as people enjoy the bikes for leasure purpose and scenery rides.
+# Here we are looking at a density plot showing the Average bike usage throughout a day, split by week days and weekend days
+# The most popular bike hire times during the weekdays were 7-10AM and 5-8PM. Looking at these rush hours, we can assume that people are using hired bikes to commute to work in the morning and than back home in the evening. Generally, the middle of the day is less busy.
+# While over the weekend days, the peak is rather flat and widely spread over the day hours, between 10AM-6PM. We can assume people are enjoying their free time and using the hired bikes for rather leisure purposes and scenery rides.
 nyc_bikes_updated %>% 
   ggplot() +
   aes(x = hour, fill = weekday) +
   geom_density(aes(y = ..density..), alpha = 0.5) +
-  scale_x_continuous(breaks = c(0, 4, 8, 12, 16, 20)) +
+  scale_x_continuous(breaks = 0:24) +
   theme_classic() +
   theme(legend.title = element_blank()) +
   labs(
     x = "Time (hours)",
     y = "Popular hours",
-    title = "NYC Citi Bike trips by hour of day"
+    title = "Bike trips by hour of day"
   ) 
+
+## number of all bike hires depending on an hour (hard numbers for the density plot above)
+nyc_bikes_updated %>% 
+  index_by(hour) %>% 
+  group_by(weekday) %>% 
+  summarise(hire_count = n())
 ```
 
-This graph represents the total duration of City Bike hire of the observed 10 bikes in 2018
-
 ```{r}
-# This graph represents the total duration of City Bike hire of the observed 10 bikes in 2018
+weekday_weekend <- nyc_bikes_updated %>% 
+  index_by(year) %>%
+  group_by(weekday) %>% 
+  summarise(total_hrs = sum(duration_hrs))
+
+weekday_weekend
+```
+
+<details>
+<summary>**Quiz - answer**</summary>
+
+```{r results = T, results='asis'}
+# The year 2018 has exactly 365 days. There are 253 working days in this year and there 104 weekend days.
+compare_weekday_weekend <- weekday_weekend %>% 
+  mutate(avg_time = case_when(
+    weekday == "weekday" ~ total_hrs/261/10*60,
+    TRUE                 ~ total_hrs/104/10*60)
+  ) %>% 
+  mutate(avg_time = dminutes(as.duration(avg_time))) %>% 
+  select(-total_hrs)
+
+rmarkdown::paged_table(compare_weekday_weekend)
+```
+</details>
+<br>
+
+### Hours each bike was used during the year
+* total hours each bike was used was nearly 67 hours
+* further split by the gender - male spent more time cycling on the hired-bikes
+
+<br>
+```{r}
+# This graph represents the total average duration of bike hire for each gender. 
 nyc_bikes_updated %>% 
   index_by(year) %>%
   group_by(gender) %>% 
   filter(gender != "Unknown") %>% 
-  summarise(duration_total = sum(duration_hrs)) %>% 
+  summarise(duration_total = sum(duration_hrs)/10) %>% 
+  ungroup() %>% 
   ggplot() +
   aes(x = gender, y = duration_total, fill = gender) +
   geom_col(alpha = 0.5) +
@@ -111,16 +185,21 @@ nyc_bikes_updated %>%
     y = "Time (hours)",
     title = "Total duration of bike hire in 2018" 
   )
+
+# total hours each bike was used
+nyc_bikes_updated %>% 
+  index_by(year) %>%
+  filter(gender != "Unknown") %>% 
+  summarise(duration_total = sum(duration_hrs)/10)
 ```
 
 ```{r}
-
 # summaries of a typical customer, proportions
 ```
 
 
 ```{r}
-# hire counts for all 10 bikes
+# hire totals for ALL 10 bikes
 
 ## in a year
 nyc_bikes_year <- nyc_bikes %>% 
@@ -145,23 +224,7 @@ nyc_bikes_days <- nyc_bikes %>%
 
 
 ```{r}
-# visualization
-
-# the busiest month of the year 2018 was August 
-nyc_bikes_months %>% 
-  ggplot(aes(x = month, y = hire_count)) +
-  geom_point() + 
-  geom_line(group = 1) +
-  labs(
-    title = "Bike hire count throughout the 2018"
-  )
-```
-
-
-
-
-```{r}
-# hire counts for each of the 10 bikes
+# hire totals for each ONE of the 10 bikes
 
 ## in a year
 nyc_bikes %>% 
@@ -187,5 +250,81 @@ nyc_bikes %>%
   index_by(day = wday(start_time, week_start = 1, label = TRUE)) %>% 
   summarise(hire_count = n())
 ```
+
+
+
+```{r}
+############################ 
+#What is the geographical spread of the start points of bike hires?
+#Can you predict bike use over the next couple of months?
+#Any other insights?
+
+
+```
+
+### Geographical spread of the start/end points of bike hires
+
+```{r}
+# there was 55 bike stations in 2018
+unique(nyc_bikes$start_station) %>% 
+  length()
+
+# there was 55 bike stations in 2018
+unique(nyc_bikes$end_station) %>% 
+  length()
+
+# seems like there is more end_stations in our sample of 10 bikes, checking these are equal to start_station and cover them all
+# it is correct, I shall visualize the end station on the map to be more comprehensive
+unique(nyc_bikes$start_station) %in% unique(nyc_bikes$end_station)
+```
+
+```{r results = T}
+# Extracting First Row of Each Group of the same start_point Using duplicated Function
+# get all 55 unique lng and lat
+nyc_bikes_spatial <- nyc_bikes %>% 
+  #index_by(date) %>% 
+  arrange(end_station) %>% 
+  filter(!duplicated(end_station))
+
+# Spatial plot
+nyc_bikes_spatial %>% 
+  leaflet() %>% 
+  addTiles() %>% 
+  addMarkers(lng = ~ start_long,
+             lat = ~ start_lat,
+             popup = ~ start_station)
+```
+
+<br>
+
+### Prediction
+
+```{r results = T}
+nyc_bikes_model <- nyc_bikes_updated %>% 
+  index_by(date) %>% 
+  summarise(total = n()/10) 
+
+fit <- nyc_bikes_model %>% 
+  model(
+    snaive = SNAIVE(total),
+    arima = ARIMA(total)
+  )
+
+fc <- fit %>% 
+  fabletools::forecast(h = "3 months")
+
+# visualization
+fc %>% 
+  autoplot(nyc_bikes_model, level = NULL) +
+  ggtitle("Forecasts of bike hire for the first three months of 2019") +
+  guides(colour = guide_legend(title = "Forecast")) +
+  theme_classic() +
+  scale_x_date(date_labels = "%b") +
+  labs(
+    x = "",
+    y = "bike hired (i-times)"
+  )
+```
+
 
 
