@@ -1,0 +1,70 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+1 MVP
+The file project_management.csv contains data sampled from the recent work schedule of a small construction company. Column estimated_length contains the estimated length of a building job in days, while column actual_length contains the actual recorded length of the job in days.
+
+We are interested in determining the accuracy of the job estimations made by the company using simple linear regression, so we will eventually want to run a simple linear regression using actual_length as the dependent variable, and estimated_length as the independent variable.
+
+
+
+Load the data into a dataframe project
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(broom)
+library(ggfortify)
+
+data <- read_csv("data/project_management.csv")
+```
+
+
+Plot the data, taking estimated_length as the independent variable and actual_length as the dependent variable.
+
+```{r}
+data %>% 
+  ggplot() +
+  aes(x = estimated_length, y = actual_length) +
+  geom_point()
+```
+
+Calculate the correlation coefficient of estimated_length and actual_length and interpret the value you obtain.
+
+```{r}
+data %>% 
+  summarise(correlation = cor(estimated_length, actual_length))
+```
+
+Perform a simple linear regression using actual_length as the dependent variable, and estimated_length as the independent variable. Save the model object to a variable.
+
+```{r}
+model <- lm(formula = actual_length ~ estimated_length, data = data)
+
+model
+clean_names(glance(model))
+```
+
+Interpret the regression coefficient of estimated_length (i.e. slope, gradient) you obtain from the model. How do you interpret the r2
+ value reported by the model?
+
+```{r}
+# estimated_length = b0 + b1 * actual_length
+
+# b0 = 1.416 fitted model will intercept y axis at 1.416
+# b1 = 1.223 slope (gradient) of the model line. With every increase of the actual_length by 1 unit, the estimated_length will increase by 1.223 units
+# r^2 = 0.6474772	(coef. of determination) explains how good fit our model is. Not so good.. low amount of explained variation
+```
+
+Is the relationship statistically significant? Remember, to assess this you need to check the p
+-value of the regression coefficient (or slope/gradient). But you should first check the regression diagnostic plots to see if the p
+-value will be reliable (don’t worry about any outlier points you see in the diagnostic plots, we’ll return to them in the extension).
+
+```{r}
+autoplot(model)
+# p-value = 1.911284e-12	< 0.005 (0.001), we reject H0; r^2 = 0
+# the relationship is statistically significant
+```
+
