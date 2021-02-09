@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+1 MVP
+
+### Load the diamonds.csv data set and undertake an initial exploration of the data. You will find a description of the meanings of the variables on the relevant [Kaggle page](https://www.kaggle.com/shivam2503/diamonds/)
+
+```{r}
+library(tidyverse)
+library(mosaic)
+library(mosaicData)
+library(ggfortify)
+library(GGally)
+library(fastDummies)
+
+diamonds <- read_csv("data/diamonds.csv")
+```
+
+### We expect the carat of the diamonds to be strong correlated with the physical dimensions x, y and z. Use ggpairs() to investigate correlations between these four variables.
+
+```{r}
+diamonds %>% 
+  ggpairs(columns = c("carat", "x", "y", "z")
+  )
+
+# there is a very strong correlation between the carat and the physical dimensions (x, y and z)
+```
+
+### So, we do find significant correlations. Let’s drop columns x, y and z from the dataset, in preparation to use only carat going forward.
+
+```{r}
+diamonds <- diamonds %>% 
+  select(-c(x, y, z))
+```
+
+### We are interested in developing a regression model for the price of a diamond in terms of the possible predictor variables in the dataset.
+
+### Use ggpairs() to investigate correlations between price and the predictors (this may take a while to run, don’t worry, make coffee or something).
+
+```{r}
+ggpairs(diamonds)
+```
+
+### Perform further ggplot visualisations of any significant correlations you find.
+
+```{r}
+# there is also very strong correlation between the carat and price
+diamonds %>% 
+  summarise(correlation_coef = cor(carat, price))
+
+diamonds %>% 
+  ggplot() +
+  aes(x = carat, y = price) +
+  geom_point() 
+```
+
+### Shortly we may try a regression fit using one or more of the categorical predictors cut, clarity and color, so let’s investigate these predictors:
+### Investigate the factor levels of these predictors. How many dummy variables do you expect for each of them?
+
+```{r}
+unique(diamonds$cut) # 4 dummy variables
+unique(diamonds$clarity) # 7 
+unique(diamonds$color) # 6
+
+# expected dummy variables: n-1
+```
+
+### Use the dummy_cols() function in the fastDummies package to generate dummies for these predictors and check the number of dummies in each case.
+
+```{r}
+diamonds %>% 
+  dummy_cols(select_columns = c("cut", "clarity", "color"),
+             remove_first_dummy = TRUE,
+             remove_selected_columns = TRUE)
+```
+
+
+
+
