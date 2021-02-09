@@ -51,11 +51,11 @@ Interpret the regression coefficient of estimated_length (i.e. slope, gradient) 
  value reported by the model?
 
 ```{r}
-# estimated_length = b0 + b1 * actual_length
+# actual_length = b0 + b1 * estimated_length
 
 # b0 = 1.416 fitted model will intercept y axis at 1.416
-# b1 = 1.223 slope (gradient) of the model line. With every increase of the actual_length by 1 unit, the estimated_length will increase by 1.223 units
-# r^2 = 0.6474772	(coef. of determination) explains how good fit our model is. Not so good.. low amount of explained variation
+# b1 = 1.223 slope (gradient) of the model line. With every 1 day increase in estimated_length, the actual_length will increase by 1.223 days.
+# r^2 = 0.6474772	(coeff. of determination) explains how good fit our model is. Not so good.. low amount of explained variation. Approximately 65% of the variation in actual_length can be predicted from the variation in estimated_length
 ```
 
 Is the relationship statistically significant? Remember, to assess this you need to check the p
