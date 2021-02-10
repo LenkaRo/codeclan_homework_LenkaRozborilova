@@ -1,0 +1,130 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+1 MVP
+
+### You are given a set of data on housing sale prices for the last few years in King County (near Seattle) between May 2014 and May 2015.
+
+
+### We want you to build an **explanatory model for the price of housing** in King County, i.e. an interpretable model in which the included variables are statistically justifiable.
+
+The variable definitions are:
+
+id - Unique ID for each home sold
+date - Date of the home sale
+price - Price of each home sold
+bedrooms - Number of bedrooms
+bathrooms - Number of bathrooms, where .5 accounts for a room with a toilet but no shower
+sqft_living - Square footage of the apartments interior living space
+sqft_lot - Square footage of the land space
+floors - Number of floors
+waterfront - A dummy variable for whether the apartment was overlooking the waterfront or not
+view - An index from 0 to 4 of how good the view of the property was
+condition - An index from 1 to 5 on the condition of the apartment
+grade - An index from 1 to 13, where 1-3 falls short of building construction and design, 7 has an average level of construction and design, and 11-13 have a high quality level of construction and design
+sqft_above - The square footage of the interior housing space that is above ground level
+sqft_basement - The square footage of the interior housing space that is below ground level
+yr_built - The year the house was initially built
+yr_renovated - The year of the house’s last renovation
+zipcode - What zipcode area the house is in
+lat - Lattitude
+long - Longitude
+sqft_living15 - The square footage of interior housing living space for the nearest 15 neighbors
+sqft_lot15 - The square footage of the land lots of the nearest 15 neighbors
+
+```{r}
+library(tidyverse)
+library(fastDummies)
+library(GGally)
+```
+
+```{r}
+houses <- read_csv("data/kc_house_data.csv")
+
+glimpse(houses)
+```
+### Tidy up the data ready for regression:
+
+### You might like to think about removing some or all of date, id, sqft_living15, sqft_lot15 and zipcode (lat and long provide a better measure of location in any event).
+### Have a think about how to treat waterfront. Should we convert its type? 
+  #### I think it already behaves like a dummy, and it is numerical, no need to transform it.. But I have to transform it in order to be able to run ggpairs(), split the data set into two (numerical and logical) so I don't run out of memory
+### We converted yr_renovated into a renovated logical variable, indicating whether the property had ever been renovated. You may wish to do the same.
+### Have a think about how to treat condition and grade? Are they interval or categorical ordinal data types? 
+  #### both condition and grade are categorical ordinal variables, I should dummy them to transform them into numerical variables, but frankly, lm() does it for me..
+  #### For simplification, I transformed grade into three supersets (3 ordinal categories - low/average/high)
+
+```{r}
+houses_tidy <- houses %>% 
+  select(-c("id", "date", "zipcode", "sqft_living15", "sqft_lot15")) %>% 
+  mutate(
+    waterfront = as.logical(waterfront)
+  ) %>% 
+  mutate(
+    renovated = ifelse(yr_renovated == "0", 0, 1) %>%  as.logical()
+  ) %>% 
+  select(-yr_renovated) %>%
+  mutate(
+    condition = factor(condition, levels = c("1", "2", "3", "4", "5")),
+    grade = case_when(
+      grade %in% c(1:3) ~ "low",
+      grade %in% c(4:10) ~ "average",
+      TRUE ~ "high"
+    ),
+    grade = factor(grade, levels = c("low", "average", "high"))
+  )
+  # dummy_cols(
+  #   select_columns = c("waterfront", "condition", "grade"),
+  #   remove_first_dummy = TRUE,
+  #   remove_selected_columns = TRUE
+  # ) 
+
+glimpse(houses_tidy)
+```
+
+### Check for aliased variables using the alias() function (this takes in a formula object and a data set). [Hint - formula price ~ . says ‘price varying with all predictors’, this is a suitable input to alias()]. Remove variables that lead to an alias. Check the ‘Elements of multiple regression’ lesson for a dropdown containing further information on finding aliased variables in a dataset.
+
+```{r}
+# check for redundant variables
+alias(lm(price ~ ., data = houses_tidy))
+```
+
+```{r}
+# get rid of identified redundant variable
+houses_tidy <- houses_tidy %>% 
+  select(-sqft_basement)
+```
+
+### Systematically build a regression model containing up to four main effects (remember, a main effect is just a single predictor with coefficient), testing the regression diagnostics as you go
+
+### splitting datasets into numeric and non-numeric columns might help ggpairs() run in manageable time, although you will need to add either a price or resid column to the non-numeric dataframe in order to see its correlations with the non-numeric predictors.
+
+```{r}
+houses_tidy_numeric <- houses_tidy %>%
+  select_if(is.numeric)
+
+houses_tidy_nonnumeric <- houses_tidy %>%
+  select_if(function(x) !is.numeric(x))
+```
+
+```{r}
+houses_tidy_numeric %>% 
+  ggpairs(progress = FALSE) # no progress bar
+```
+
+```{r}
+houses_tidy_nonnumeric$price <- houses_tidy$price
+
+houses_tidy_nonnumeric %>% 
+  ggpairs(progress = FALSE)
+```
+
+The highest correlation between numeric explanatory variables and `price` has variable `sqft_living`
+
+## Model 1
+
+```{r}
+
+```
+
