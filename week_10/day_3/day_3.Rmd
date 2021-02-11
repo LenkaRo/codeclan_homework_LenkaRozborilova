@@ -235,3 +235,51 @@ anova(mod1a, mod2a)
 p-value is signifficant, model including both explanatory variables is better! We are going to include `lat`
 
 So far, the model mod2a is the best, containing two main effects (explanatory variables `sqft_living` and `lat`)
+
+# Model 3
+
+## Model 3a
+### R-squared:  0.6005
+### Residual standard error: 232100
+
+```{r}
+# `grade` was showing some great properties as an explanatory variable, let's add it to the current best model mod2a
+mod3a <- lm(price ~ sqft_living + lat + grade, data = houses_tidy)
+autoplot(mod3a)
+summary(mod3a)
+```
+
+```{r}
+anova(mod2a, mod3a)
+```
+
+yes, we go with mod3a!
+
+```{r}
+# looking at all the remaining predictors
+houses_tidy_resid <- houses_tidy %>% 
+  add_residuals(mod3a) %>% 
+  select(-c("price", "sqft_living", "lat", "grade"))
+
+# again display only for numeric variables
+houses_tidy_resid %>% 
+  ggpairs(progress = FALSE) 
+```
+
+# Model 4
+
+## Model 4a
+### R-squared:  0.6388
+### Residual standard error: 220700
+
+```{r}
+# `view` has the highest correlating among remaining predictors and current model, let's add it
+mod4a <- lm(price ~ sqft_living + lat + grade + view, data = houses_tidy)
+autoplot(mod4a)
+summary(mod4a)
+```
+
+
+### Conclusion: I managed to build a model using a systematical approach, that explains on average 63% of variation in house prices with residual standard error of 220700.
+
+price ~ sqft_living + lat + grade + view
