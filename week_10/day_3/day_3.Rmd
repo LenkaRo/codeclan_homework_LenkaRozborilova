@@ -38,6 +38,8 @@ sqft_lot15 - The square footage of the land lots of the nearest 15 neighbors
 library(tidyverse)
 library(fastDummies)
 library(GGally)
+library(ggfortify)
+library(modelr)
 ```
 
 ```{r}
@@ -121,10 +123,115 @@ houses_tidy_nonnumeric %>%
 ```
 
 The highest correlation between numeric explanatory variables and `price` has variable `sqft_living`
+For non-numeric variables, the `waterfront` and `grade` seem to show some separation that might be indicating some significant association
 
-## Model 1
+# Model 1
+
+## Model 1a
+### R-squared:  0.4929
 
 ```{r}
+# start with simple linear regression explaining house prices by sqft_living
+mod1a <- lm(price ~ sqft_living, data = houses_tidy)
 
+# diagnostic plot
+autoplot(mod1a)
+
+# summary
+summary(mod1a)
 ```
 
+Model 1 is fairly poor, sqft_living is a significant predictor, but the model overall explains on average just 49% of the variation in the house prices.
+Diagnostic plots are suggesting, there might be some issues with the assumptions on residuals.
+
+## Model 1b
+### R-squared:  0.07095
+
+```{r}
+# let's try simple linear regression explaining house prices by waterfront 
+mod1b <- lm(price ~ waterfront, data = houses_tidy)
+
+# diagnostic plot
+autoplot(mod1b)
+
+# summary
+summary(mod1b)
+```
+
+## Model 1c
+### R-squared:  0.2289
+
+```{r}
+# and finaly simple linear regression explaining house prices by grade category
+mod1c <- lm(price ~ grade, data = houses_tidy)
+
+# diagnostic plot
+autoplot(mod1c)
+
+# summary
+summary(mod1c)
+```
+
+# Model 2
+
+so far the best model was Mod1a, we will go with that one
+
+```{r}
+# looking at remaining predictors
+houses_tidy_resid <- houses_tidy %>% 
+  add_residuals(mod1) %>% 
+  select(-c("price", "sqft_living"))
+
+# again display only for numeric variables
+houses_tidy_resid %>% 
+  select_if(is.numeric) %>% 
+  ggpairs(progress = FALSE) 
+```
+
+```{r}
+# and again only for non-numeric variables
+houses_tidy_resid_nonnumeric <- houses_tidy_resid %>%
+  select_if(function(x) !is.numeric(x))
+
+houses_tidy_resid_nonnumeric$price <- houses_tidy$price
+
+houses_tidy_resid_nonnumeric %>% 
+  ggpairs(progress = FALSE)
+```
+
+`lat` is showing the highest correlation between remaining explanatory variables and mod1a. 
+For non-numeric variables, again, the `waterfront` and `grade` seem to show some separation that might be indicating some significant association.
+
+## Model 2a
+### R-squared:  0.566
+### Residual standard error: 241900
+
+```{r}
+# let's add `lat` first
+mod2a <- lm(price ~ sqft_living + lat, data = houses_tidy)
+autoplot(mod2a)
+summary(mod2a)
+```
+
+## Model 2b
+### R-squared:  0.5298
+### Residual standard error: 251800
+
+```{r}
+mod2b <- lm(price ~ sqft_living + grade, data = houses_tidy)
+autoplot(mod2b)
+summary(mod2b)
+```
+
+mod2a explains the variance in price slightly better, let's go with that one. We now have two models mod1a and mod2a. We need to check whether they both explain the same amount of variance -> ANOVA
+(ie. looking at `sqft_living` alone, or `sqft_living` and `lat`)
+
+## ANOVA
+
+```{r}
+anova(mod1a, mod2a)
+```
+
+p-value is signifficant, model including both explanatory variables is better! We are going to include `lat`
+
+So far, the model mod2a is the best, containing two main effects (explanatory variables `sqft_living` and `lat`)
