@@ -1,0 +1,382 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Model Building
+
+MVP
+
+We’ve looked at a few different ways in which we can build models this week, including how to prepare them properly. This weekend we’ll build a multiple linear regression model on a dataset which will need some preparation. The data can be found in the data folder, along with a data dictionary
+
+We want to investigate the avocado dataset, and, in particular, to model the *AveragePrice* of the avocados. Use the tools we’ve worked with this week in order to prepare your dataset and find appropriate predictors. Once you’ve built your model use the validation techniques discussed on Wednesday to evaluate it. Feel free to focus either on building an explanatory or a predictive model, or both if you are feeling energetic!
+
+As part of the MVP we want you not to just run the code but also have a go at *interpreting the results* and write your thinking in comments in your script.
+
+Hints and tips
+
+region may lead to many dummy variables. Think carefully about whether to include this variable or not (there is no one ‘right’ answer to this!)
+Think about whether each variable is categorical or numerical. If categorical, make sure that the variable is represented as a factor.
+We will not treat this data as a time series, so Date will not be needed in your models, but can you extract any useful features out of Date before you discard it?
+If you want to build a predictive model, consider using either leaps or glmulti to help with this.
+
+
+index
+Date: The date of the observation
+AveragePrice: the average price of a single avocado
+Total Volume: Total number of avocados sold
+4046: Total number of avocados with PLU 4046 sold
+4225: Total number of avocados with PLU 4225 sold
+4770: Total number of avocados with PLU 4770 sold
+Total Bags
+Small Bags
+Large Bags
+XLarge Bags
+type: conventional or organic
+year: the year
+region: the city or region of the observation
+
+
+### What is it PLU? 
+Product Lookup code (PLU)
+Small/Medium Hass Avocado (~3-5oz avocado) | #4046
+Large Hass Avocado (~8-10oz avocado) | #4225
+Extra Large Hass Avocado (~10-15oz avocado) | #4770
+
+```{r}
+library(tidyverse)
+library(fastDummies)
+library(GGally)
+library(ggfortify)
+library(modelr)
+library(janitor)
+library(lubridate)
+library(leaps)
+library(broom)
+```
+
+```{r}
+avocado <- read_csv("data/avocado.csv") %>% clean_names()
+
+glimpse(avocado)
+```
+
+```{r}
+# tidy the data set
+## extract months from variable `date` as it might potentially show some interesting patterns,
+## get rid of unnecessary or redundant variables,
+## change PLU codes to actual size for easier readability, 
+## change all categorical variables to factor
+avocado_tidy <- avocado %>%  
+  mutate(
+    month = month(date)
+  ) %>% 
+  select(-c("x1", "date", "small_bags", "large_bags", "x_large_bags", "region")) %>% 
+  rename(size_SM = x4046,
+         size_L = x4225,
+         size_XL = x4770) %>% 
+  mutate(
+    #total_volume = round(total_volume),
+    type = as.factor(type),
+    year = as.factor(year),
+    month = as.factor(month)
+  ) %>% 
+  pivot_longer(
+    cols = c("size_SM", "size_L", "size_XL"),
+    names_to = "size",
+    values_to = "sold"
+  ) %>% 
+  mutate(
+    size = as.factor(size)
+  )
+
+glimpse(avocado_tidy)
+```
+
+```{r}
+# check for missing values - all good!
+avocado_tidy %>% 
+  summarise(across(.fns = ~ sum(is.na(.x))))
+```
+
+```{r}
+# check for aliases - all good!
+alias(lm(average_price ~ ., data = avocado_tidy))
+```
+
+```{r}
+# look for correlations that might suggest some significant relationship between target variable `average_price` and explanatory variables
+avocado_tidy %>% 
+  ggpairs(aes(color = size, alpha = 0.5),
+          progress = FALSE)
+```
+
+`type` and `month` are showing some separation in box plots against `average_price`, that is indicating some significant association
+
+Let's look at two model taking each of the two explanatory variables in separatelly and compare how them
+
+# Model 1
+
+## Model 1a
+### R-squared:  0.3793
+### Residual standard error: 0.3173
+
+```{r}
+mod1a <- lm(average_price ~ type, data = avocado_tidy)
+autoplot(mod1a)
+summary(mod1a)
+```
+
+## Model 1b
+### Multiple R-squared:  0.06009
+### Residual standard error: 0.3904
+
+```{r}
+mod1b <- lm(average_price ~ month, data = avocado_tidy)
+autoplot(mod1b)
+summary(mod1b)
+```
+
+### Mod1a is definitelly better
+
+No other variable is standing out really, let's try an automated model building
+
+
+# Model 2
+
+### forward selection
+
+```{r}
+mod2_forward <- regsubsets(average_price ~ .,
+                           data = avocado_tidy,
+                           nvmax = 9, # intercept + number of columns
+                           method = "forward") 
+
+summary(mod2_forward)
+```
+
+```{r}
+plot(mod2_forward, scale = "adjr2")
+```
+
+
+```{r}
+plot(mod2_forward)
+```
+
+Nope, unfortunatelly, this method got rid of some of the levels of categorical (factor) variables. Back to manual model building..
+From the automated model it seems like year and month variables might be explaining significantly the target variable, let"s try adding these
+
+
+# Model 3
+
+## Model 3a
+### R-squared:  0.4142
+### Residual standard error: 0.3082
+
+```{r}
+mod3a <- lm(average_price ~ type + year, data = avocado_tidy)
+autoplot(mod3a)
+summary(mod3a)
+```
+
+## Model 3b
+### R-squared:  0.4393
+Residual standard error: 0.3015
+
+```{r}
+mod3b <- lm(average_price ~ type + month, data = avocado_tidy)
+autoplot(mod3b)
+summary(mod3b)
+```
+
+Mod3b is better! Does it explain more variance in the `average_price` than mod1a? -> ANOVA
+
+```{r}
+anova(mod1a, mod3b)
+```
+
+p-value 2.2e-16 *** -> significant! model including both explanatory variables is better
+
+### so far our best model is mod3b
+
+let's try adding both `year` and `month` too, and then also their interaction
+
+# Model 4
+
+## Model 4a
+### R-squared:  0.474
+### Residual standard error: 0.2921
+
+```{r}
+mod4a <- lm(average_price ~ type + month + year, data = avocado_tidy)
+autoplot(mod4a)
+summary(mod4a)
+```
+
+## Model 4b
+### R-squared:  0.5089
+### Residual standard error: 0.2823
+
+```{r}
+mod4b <- lm(average_price ~ type + month:year, data = avocado_tidy)
+autoplot(mod4b)
+summary(mod4b)
+```
+
+### let's look at correlation with residuals with model md4b
+
+```{r}
+avocado_tidy_remaining_resid <- avocado_tidy %>% 
+  add_residuals(mod4b) %>% 
+  select(-c("average_price", "type", "month", "year"))
+
+avocado_tidy_remaining_resid %>% 
+  ggpairs(aes(color = size),
+          progress = FALSE)
+```
+
+It looks like there is a very strong correlation between residuals and `total_bags` and `sold`. I'm gonna build suh model but frankly, sounds like I am creating an overfitting model. I will check that comparing adjusted r-squared and BIC (Bayesian Information Criterion)
+
+# Model 5
+
+## Model 5a
+### R-squared:  0.5106
+### Residual standard error: 0.2818
+
+```{r}
+mod5a <- lm(average_price ~ type + month:year + total_bags, data = avocado_tidy)
+autoplot(mod5a)
+summary(mod5a)
+```
+
+## Model 5b
+### R-squared:  0.5102
+### Residual standard error: 0.2819
+
+```{r}
+mod5b <- lm(average_price ~ type + month:year + sold, data = avocado_tidy)
+autoplot(mod5b)
+summary(mod5b)
+```
+
+mod5a is slightly better
+
+### check the model mod5a explains more variance then mod4b -> ANOVA (all good!)
+
+```{r}
+anova(mod4b, mod5a)
+```
+
+### let's look at the mentioned goodnes of fit measures in mod4b and mod5a
+
+#### mod4b: adj.r.squared 0.508536, BIC 17282.02
+#### mod5a: adj.r.squared 0.51029,  BIC 17096.19 <- better!
+
+```{r}
+glance(mod4b)
+```
+
+```{r}
+glance(mod5a)
+```
+
+### mod5a is so far the best, and not over-fitted yet, so let's also try adding `sold`
+
+# Model 6
+
+## Model 6
+### R-squared:  0.5107
+### Residual standard error: 0.2818
+
+```{r}
+mod6 <- lm(average_price ~ type + month:year + total_bags + sold, data = avocado_tidy)
+autoplot(mod6)
+summary(mod6)
+```
+
+```{r}
+anova(mod5a, mod6)
+```
+
+### Significant, but soooo close to the level of significance 0.05. Let's check andjusted r^2 and BIC to be sure
+
+```{r}
+glance(mod6)
+```
+#### mod5a: adj.r.squared 0.51029,  BIC 17096.19 <- better!
+#### mod6: adj.r.squared 0.5103179,  BIC 17102.99
+BIC is going up! Simplier model mod5a was better
+
+### Conclusion: I managed to build a model using a systematical approach, that explains on average 51% of variation in average price of avocado with residual standard error of 0.2818.
+
+average_price ~ type + month:year + total_bags
+
+
+######################################################################################################
+
+# TRAIN/TEST data (80/20 split)
+
+## on the whole avocado data set
+### mean squared error on TEST data 0.0816405
+### mean squared error of the predictions on TRAIN data 0.2458028
+
+```{r}
+# need to do just a slight adjustment to the data, create the month variable so it fits the model, and change categorical variables to factors
+avocado_month <- avocado %>% 
+  mutate(
+    month = month(date) %>% as.factor()
+  ) %>% 
+  mutate(
+    year = as.factor(year),
+    type = as.factor(type)
+  )
+```
+
+```{r}
+# number of rows in the data set
+n_data <- nrow(avocado_month)
+
+test_index <- sample(1:n_data, size = n_data * 0.2)
+
+test <- slice(avocado_month, test_index)
+train <- slice(avocado_month, -test_index)
+
+# fit my model on the training data
+model <- lm(average_price ~ type + month:year + total_bags, data = train)
+
+# predict test data, based on model from training data
+predictions_test <- predict(model, newdata = test)
+
+# calculate the mean squared error on my TEST data
+mean((predictions_test - test$average_price)^2)
+
+# find the mean squared error of the predictions on my TRAIN data
+mean((predictions_test - train$average_price)^2)
+```
+
+## on the tidy avocado data set
+### mean squared error on TEST data 0.07765493
+### mean squared error of the predictions on TRAIN data 0.2452789
+
+```{r}
+# number of rows in the data set
+n_data <- nrow(avocado_tidy)
+
+test_index <- sample(1:n_data, size = n_data * 0.2)
+
+test <- slice(avocado_tidy, test_index)
+train <- slice(avocado_tidy, -test_index)
+
+# fit my model on the training data
+model <- lm(average_price ~ type + month:year + total_bags, data = train)
+
+# predict test data, based on model from training data
+predictions_test <- predict(model, newdata = test)
+
+# calculate the mean squared error on my TEST data
+mean((predictions_test - test$average_price)^2)
+
+# find the mean squared error of the predictions on my TRAIN data
+mean((predictions_test - train$average_price)^2)
+```
