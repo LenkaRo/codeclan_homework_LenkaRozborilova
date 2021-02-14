@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
 # Model Building
@@ -62,12 +64,34 @@ glimpse(avocado)
 ```
 
 ```{r}
+# check for missing values - all good!
+avocado %>% 
+  summarise(across(.fns = ~ sum(is.na(.x))))
+```
+
+### Split data into training and testing data sets (80/20)
+```{r}
+# get the number of observations (rows)
+n_data <- nrow(avocado)
+
+# set seed to make my partition reproducible
+set.seed(123)
+
+# get random observations (rows) to ensure I have a good distribution in my data set
+test_index <- sample(1:n_data, size = n_data * 0.2)
+
+test <- slice(avocado, test_index)
+train <- slice(avocado, -test_index)
+```
+
+
+```{r}
 # tidy the data set
 ## extract months from variable `date` as it might potentially show some interesting patterns,
 ## get rid of unnecessary or redundant variables,
 ## change PLU codes to actual size for easier readability, 
 ## change all categorical variables to factor
-avocado_tidy <- avocado %>%  
+avocado_tidy <- train %>%  
   mutate(
     month = month(date)
   ) %>% 
@@ -93,11 +117,6 @@ avocado_tidy <- avocado %>%
 glimpse(avocado_tidy)
 ```
 
-```{r}
-# check for missing values - all good!
-avocado_tidy %>% 
-  summarise(across(.fns = ~ sum(is.na(.x))))
-```
 
 ```{r}
 # check for aliases - all good!
@@ -118,8 +137,8 @@ Let's look at two model taking each of the two explanatory variables in separate
 # Model 1
 
 ## Model 1a
-### R-squared:  0.3793
-### Residual standard error: 0.3173
+### R-squared:  0.3774
+### Residual standard error: 0.3177
 
 ```{r}
 mod1a <- lm(average_price ~ type, data = avocado_tidy)
@@ -128,8 +147,8 @@ summary(mod1a)
 ```
 
 ## Model 1b
-### Multiple R-squared:  0.06009
-### Residual standard error: 0.3904
+### Multiple R-squared:  0.05652
+### Residual standard error: 0.3912
 
 ```{r}
 mod1b <- lm(average_price ~ month, data = avocado_tidy)
@@ -164,15 +183,15 @@ plot(mod2_forward, scale = "adjr2")
 plot(mod2_forward)
 ```
 
-Nope, unfortunatelly, this method got rid of some of the levels of categorical (factor) variables. Back to manual model building..
-From the automated model it seems like year and month variables might be explaining significantly the target variable, let"s try adding these
+Nope, unfortunately, this method got rid of some of the levels of categorical (factor) variables. Back to manual model building..
+From the automated model it seems like year and month variables might be explaining significantly the target variable, let's try adding these
 
 
 # Model 3
 
 ## Model 3a
-### R-squared:  0.4142
-### Residual standard error: 0.3082
+### R-squared:  0.411
+### Residual standard error: 0.309
 
 ```{r}
 mod3a <- lm(average_price ~ type + year, data = avocado_tidy)
@@ -181,8 +200,8 @@ summary(mod3a)
 ```
 
 ## Model 3b
-### R-squared:  0.4393
-Residual standard error: 0.3015
+### R-squared:  0.4353
+Residual standard error: 0.3026
 
 ```{r}
 mod3b <- lm(average_price ~ type + month, data = avocado_tidy)
@@ -190,7 +209,7 @@ autoplot(mod3b)
 summary(mod3b)
 ```
 
-Mod3b is better! Does it explain more variance in the `average_price` than mod1a? -> ANOVA
+Mod3b is better! Does it explain more variance in the `average_price` than mod1a though? -> ANOVA
 
 ```{r}
 anova(mod1a, mod3b)
@@ -198,15 +217,15 @@ anova(mod1a, mod3b)
 
 p-value 2.2e-16 *** -> significant! model including both explanatory variables is better
 
-### so far our best model is mod3b
+### so far, my best model is mod3b
 
 let's try adding both `year` and `month` too, and then also their interaction
 
 # Model 4
 
 ## Model 4a
-### R-squared:  0.474
-### Residual standard error: 0.2921
+### R-squared:  0.469
+### Residual standard error: 0.2935
 
 ```{r}
 mod4a <- lm(average_price ~ type + month + year, data = avocado_tidy)
@@ -215,8 +234,8 @@ summary(mod4a)
 ```
 
 ## Model 4b
-### R-squared:  0.5089
-### Residual standard error: 0.2823
+### R-squared:  0.5048
+### Residual standard error: 0.2835
 
 ```{r}
 mod4b <- lm(average_price ~ type + month:year, data = avocado_tidy)
@@ -224,7 +243,7 @@ autoplot(mod4b)
 summary(mod4b)
 ```
 
-### let's look at correlation with residuals with model md4b
+### mod4b is winning now, let's look at remaining predictors, i.e. all predictors not yet in the model mod4b
 
 ```{r}
 avocado_tidy_remaining_resid <- avocado_tidy %>% 
@@ -236,13 +255,13 @@ avocado_tidy_remaining_resid %>%
           progress = FALSE)
 ```
 
-It looks like there is a very strong correlation between residuals and `total_bags` and `sold`. I'm gonna build suh model but frankly, sounds like I am creating an overfitting model. I will check that comparing adjusted r-squared and BIC (Bayesian Information Criterion)
+It looks like there is a very strong correlation between residuals and `total_bags` and `sold`. I'm gonna build such model but frankly, sounds like I am creating an overfitting model. I will check that comparing adjusted r-squared and BIC (Bayesian Information Criterion)
 
 # Model 5
 
 ## Model 5a
-### R-squared:  0.5106
-### Residual standard error: 0.2818
+### R-squared:  0.5067
+### Residual standard error: 0.2829
 
 ```{r}
 mod5a <- lm(average_price ~ type + month:year + total_bags, data = avocado_tidy)
@@ -251,8 +270,8 @@ summary(mod5a)
 ```
 
 ## Model 5b
-### R-squared:  0.5102
-### Residual standard error: 0.2819
+### R-squared:  0.5062
+### Residual standard error: 0.2831
 
 ```{r}
 mod5b <- lm(average_price ~ type + month:year + sold, data = avocado_tidy)
@@ -263,6 +282,7 @@ summary(mod5b)
 mod5a is slightly better
 
 ### check the model mod5a explains more variance then mod4b -> ANOVA (all good!)
+p-value 2.2e-16 *** - significant!
 
 ```{r}
 anova(mod4b, mod5a)
@@ -270,8 +290,8 @@ anova(mod4b, mod5a)
 
 ### let's look at the mentioned goodnes of fit measures in mod4b and mod5a
 
-#### mod4b: adj.r.squared 0.508536, BIC 17282.02
-#### mod5a: adj.r.squared 0.51029,  BIC 17096.19 <- better!
+#### mod4b: adj.r.squared 0.5043912, BIC 14264.55
+#### mod5a: adj.r.squared 0.5062798,  BIC 14107.01 <- better!
 
 ```{r}
 glance(mod4b)
@@ -286,8 +306,8 @@ glance(mod5a)
 # Model 6
 
 ## Model 6
-### R-squared:  0.5107
-### Residual standard error: 0.2818
+### R-squared:  0.5068
+### Residual standard error: 0.2829
 
 ```{r}
 mod6 <- lm(average_price ~ type + month:year + total_bags + sold, data = avocado_tidy)
@@ -295,35 +315,21 @@ autoplot(mod6)
 summary(mod6)
 ```
 
+### check the model mod6 explains more variance then mod5a -> ANOVA (nope!)
+p-value 0.08127 - not significant! We failed to reject H0. Models are explaining the same amount of variance in price of avocados. 
+I'm gonna stick with simpler model mod5a.
+
 ```{r}
 anova(mod5a, mod6)
 ```
 
-### Significant, but soooo close to the level of significance 0.05. Let's check andjusted r^2 and BIC to be sure
-
-```{r}
-glance(mod6)
-```
-#### mod5a: adj.r.squared 0.51029,  BIC 17096.19 <- better!
-#### mod6: adj.r.squared 0.5103179,  BIC 17102.99
-BIC is going up! Simplier model mod5a was better
-
-### Conclusion: I managed to build a model using a systematical approach, that explains on average 51% of variation in average price of avocado with residual standard error of 0.2818.
-
-average_price ~ type + month:year + total_bags
-
-
 ######################################################################################################
 
-# TRAIN/TEST data (80/20 split)
-
-## on the whole avocado data set
-### mean squared error on TEST data 0.0816405
-### mean squared error of the predictions on TRAIN data 0.2458028
+### Predict test data, based on model developed on training data
 
 ```{r}
 # need to do just a slight adjustment to the data, create the month variable so it fits the model, and change categorical variables to factors
-avocado_month <- avocado %>% 
+test_adjusted <- test %>% 
   mutate(
     month = month(date) %>% as.factor()
   ) %>% 
@@ -334,49 +340,30 @@ avocado_month <- avocado %>%
 ```
 
 ```{r}
-# number of rows in the data set
-n_data <- nrow(avocado_month)
-
-test_index <- sample(1:n_data, size = n_data * 0.2)
-
-test <- slice(avocado_month, test_index)
-train <- slice(avocado_month, -test_index)
-
-# fit my model on the training data
-model <- lm(average_price ~ type + month:year + total_bags, data = train)
-
-# predict test data, based on model from training data
-predictions_test <- predict(model, newdata = test)
+# predict test data, based on model from training data (winner was mod5a)
+predictions_test <- predict(mod5a, newdata = test_adjusted)
 
 # calculate the mean squared error on my TEST data
-mean((predictions_test - test$average_price)^2)
+mean((predictions_test - test_adjusted$average_price)^2)
 
 # find the mean squared error of the predictions on my TRAIN data
 mean((predictions_test - train$average_price)^2)
+
+# r^2 for mod5a used on test data
+test_check <- lm(average_price ~ type + month:year + total_bags, data = test_adjusted)
+summary(test_check)
 ```
+(MSE - mean squared error: the average squared difference between the estimated values and the actual value)
 
-## on the tidy avocado data set
-### mean squared error on TEST data 0.07765493
-### mean squared error of the predictions on TRAIN data 0.2452789
+### MSE on TEST data 0.07699686
+### MSE of the predictions (estimated values) on TRAIN data 0.2464535
 
-```{r}
-# number of rows in the data set
-n_data <- nrow(avocado_tidy)
+### mod5a on test data: R-squared 0.5306, Residual standard error 0.2775
 
-test_index <- sample(1:n_data, size = n_data * 0.2)
+######################################################################################################
 
-test <- slice(avocado_tidy, test_index)
-train <- slice(avocado_tidy, -test_index)
+## Conclusion: I randomly splitted the avocado dataset into two datasets - training (made of 80% of the data), and testing (remaining 20%).
+## Using the traning data and following the systematic approach, I  built a model that explains on average 51% of variation in average price of avocado with residual standard error of 0.2829 and the average squared difference between the estimated values (predictors) and the actual value of 0.2464535.
+## I then applied the model on the test data, and received similar results (53%, 0.2775 and 0.07699686 repectively).
 
-# fit my model on the training data
-model <- lm(average_price ~ type + month:year + total_bags, data = train)
-
-# predict test data, based on model from training data
-predictions_test <- predict(model, newdata = test)
-
-# calculate the mean squared error on my TEST data
-mean((predictions_test - test$average_price)^2)
-
-# find the mean squared error of the predictions on my TRAIN data
-mean((predictions_test - train$average_price)^2)
-```
+### Final model: *average_price ~ type + month:year + total_bags*
