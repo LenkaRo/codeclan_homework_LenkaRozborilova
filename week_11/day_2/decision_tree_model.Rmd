@@ -64,9 +64,9 @@ titanic_set <- titanic_set %>%
   mutate(
     age_status = if_else(age <= 16, "child", "adult") %>% as.factor()
   ) %>% 
-  drop_na() %>% 
-  select(-c("X1", "passenger_id", "name", "ticket", "fare", "cabin", "age"))
-
+  select(-c("X1", "passenger_id", "name", "ticket", "fare", "cabin", "age")) %>% 
+  drop_na()
+  
 glimpse(titanic_set)
 ```
 
@@ -79,15 +79,12 @@ titanic_set %>%
   ggpairs(progress = FALSE)
 ```
 
-Looks like `age_status`, `sex` and `pclass` might be potentionally significant predictors
+Looks like `age_status`, `sex` and `pclass` might be potentially significant predictors
 
 Let's have a closer look at some variables
 
 ```{r}
-# seems like we lost a lot of observations by dropping NA and now, there is now more survivals in our data set than people who died (oposite to the original data set)
-# that is one of the disadvantages of decision trees, they can't work with NA and dropping them might lead to biasing of the data
-
-# looks like in proportion, children had hgher chance to survive than adults
+# looks like in proportion, children had higher chance to survive than adults
 titanic_set %>% 
   ggplot() +
   aes(x = survived, fill = age_status) +
@@ -111,6 +108,8 @@ titanic_set %>%
 Now you can start to build your model. Create your testing and training set using an appropriate split. Check you have balanced sets. Write down why you chose the split you did and produce output tables to show whether or not it is balanced. [Extra - if you want to force balanced testing and training sets, have a look at the stratified() function in package splitstackshape (you can specify multiple variables to stratify on by passing a vector of variable names to the group argument, and get back testing and training sets with argument bothSets = TRUE)]
 
 ```{r}
+set.seed(1222)
+
 # get how many rows we have in total to work out the percentage
 n_data <- nrow(titanic_set)
 
@@ -124,7 +123,7 @@ titanic_set_test  <- slice(titanic_set, test_index)
 titanic_set_train <- slice(titanic_set, -test_index)
 ```
 
-check the test and train datasets are ballanced:
+check the test and train datasets are ballanced: 
 
 ```{r}
 titanic_set_test %>%
@@ -160,11 +159,12 @@ rpart.plot(titanic_fit,
 
 Write down what this tells you, in detail. What variables are important? What does each node tell you? Who has the highest chance of surviving? Who has the lowest? Provide as much detail as you can.
 
-* There is 147 passengers entering our model.
+* There is 712 passengers entering our model.
+* Looking at the variables that decision tree model picked up as important: sex, pclass, age_status, sib_sp, parch and embarked.
 * The predicted result for a datapoint at the node (Survived or Not Survived in this example) is on the top line.
-* The second line contains probability of a *not survived* result expressed as a decimal. So if a passanger was male, he had 0.46 chance of surviving. If a passanger was female, she had 0.91 chance to survive. 
-* If the passanger was male and had 0 siblings aboard, he had 0.41 chance of surviving, while male with at least one sibling aboard had chance of surviving 0.53.
-* Male passanger, who had at least one sibling aboard and embarked Titanic in Cherbourg, had 0.75 chance to survive. There was 5% of passangers aboard who would fit this categorization.
+* The second line in a node contains probability of a *not survived* result expressed as a decimal. So eg. if a passenger was male, he had 0.21 chance of surviving. If a passenger was female, she had 0.75 chance to survive.
+* If the passenger was male traveling in 2nd or 3rd class, he had 0.16 chance of surviving, while male travelling in 1st class has 0.41 chance of surviving. 
+* Regarding to our model, 43% of the population in our model were male traveling in 2nd or 3rd class, older than 16 years
 
 note, we can see the rules it has used to make the tree if we type the following:
 
@@ -186,7 +186,7 @@ titanic_test_pred <- titanic_set_test %>%
 ```{r}
 # look at the variables used in our decision tree
 titanic_test_pred %>% 
-  select("sex", "sib_sp", "embarked", "parch", "survived", "pred")
+  select("sex", "pclass", "age_status", "sib_sp", "embarked", "parch", "survived", "pred")
 ```
 
 check model performance
@@ -199,9 +199,10 @@ conf_mat
 ```
 
 I can also use confusionMatrix function from the caret package for the decision tree model performance summary:
+### My three model has accuracy of 78.9%
 
 ```{r}
 confusionMatrix(titanic_test_pred$survived, titanic_test_pred$pred)
 ```
-
-### the decision tree model is predicting 31 results correctly (21 TP + 10 TN) and 5 wrong (1 FN + 4 FP). It has sensitivity (= true positive rate) of 0.7143 and specificity (= true negative rate) of 0.9545.
+### The decision tree model is performing well having accuracy of 78.9%. It predicted 85+36 TP and TN, whilst only 5+20 FP and FN.
+### It has sensitivity (= true positive rate) of 0.7596 and specificity (= true negative rate) of 0.8684.
