@@ -1,0 +1,180 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Clustering homework
+You have been provided some customer data from a shopping centre. Do some exploratory analysis on the data. Comment on findings.
+
+We are interested in creating a marketing campaign to target customers based on their spending score and annual income. Perform a k-means clustering to find if there are meaningful clusters in the data to target the customers.
+
+Perform k-means clustering and chose a value of k.
+
+Visualise the clustering for your chosen value of k.
+
+Do you think the clustering seems a good fit for this data?
+
+Comment on the attributes on one or two of the clusters (maybe even give them a label if you like - like in section 4.1 of the ‘Segmentation & clustering intro’ lesson).
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(corrplot)
+library(broom)
+library(factoextra)
+library(cluster)
+
+mall_customers <- read_csv("data/mall_customers.csv") %>% clean_names()
+```
+
+### 1. Do some exploratory analysis on the data. Comment on findings.
+
+```{r}
+mall_customers %>%
+  select(gender) %>% 
+  group_by(gender) %>% 
+  summarise(n = n())
+```
+
+```{r}
+# plot correlation matrix
+mall_customers_numeric <- mall_customers %>% 
+  select(-c(customer_id, gender))
+  
+corrplot(cor(mall_customers_numeric), method = "number", type = "lower")
+```
+
+```{r}
+mall_customers %>% 
+  ggplot() +
+  aes(x = age, y = annual_income_k) +
+  geom_point()
+
+mall_customers %>% 
+  ggplot() +
+  aes(x = age, y = spending_score_1_100) +
+  geom_point()
+```
+
+Findings: 
+* we have 200 observations in the sample, there is more females than males (122/88). I removed the `gender` column as k means clustering only work on numeric data
+* variables `age` and `annual_income_k` do not seem to have any relation between them, `age` and `spending_score_1_100` seem to have a slight negative correlation, and finally, no correlation between the `annual_income_k` and `spending_score_1_100` neither
+
+### 2. We are interested in creating a marketing campaign to target customers based on their spending score and annual income. Perform a k-means clustering to find if there are meaningful clusters in the data to target the customers.
+
+```{r}
+# tidy the data, k-means clustering method can only work on numeric data
+mall_customers <- mall_customers %>% 
+  column_to_rownames("customer_id") %>% 
+  select(-c("gender", "age"))
+
+head(mall_customers)
+```
+
+```{r}
+# standardize data
+mall_customers_scale <- mall_customers %>% 
+  mutate_if(is.numeric, scale)
+
+# check it worked - OK
+mall_customers_scale %>%
+  as_tibble() %>%
+  pivot_longer(cols = c(annual_income_k, spending_score_1_100), 
+               names_to = "type", 
+               values_to = "value") %>% #convert data to long format
+  group_by(type)%>%
+  summarise(mean = round(mean(value)), 
+            sd = sd(value))
+```
+
+### 3. Perform k-means clustering and chose a value of k.
+
+#### 1. Elbow method
+
+```{r}
+# Set min & max number of clusters want to look at 
+max_k <- 20 
+
+k_clusters <- tibble(k = 1:max_k) %>%
+  mutate(
+    kclust = map(k, ~ kmeans(mall_customers_scale, .x, nstart = 25)), 
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, mall_customers_scale)
+  )
+
+k_clusters
+```
+```{r}
+clusterings <- k_clusters %>%
+  unnest(glanced)
+
+ggplot(clusterings, aes(x=k, y=tot.withinss)) +
+  geom_point() +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 20, by = 1))
+```
+
+k = 5 levels the grade off the most, maybe?
+
+### 2. Silhouette coefficient
+
+```{r}
+#Chosen k=10 as an example 
+cluster_list_k10 <-  clusterings %>% 
+  unnest(augmented) %>%
+  filter(k == 10) %>%
+   select(.cluster) %>%
+    pull()
+  
+sil <- silhouette(as.numeric(cluster_list_k10), 
+                  dist(mall_customers_scale))
+
+fviz_silhouette(sil)
+```
+
+All of the clusters have a score above the average (red dotted line), difficult to tell what k would be the best from this graph, it is quite ambiguous 
+
+```{r}
+fviz_nbclust(mall_customers_scale, 
+             kmeans, 
+             method = "silhouette", 
+             nstart = 25)
+```
+
+k = 5 suggested here again
+
+#### 3. Gap statistic
+
+```{r}
+fviz_nbclust(mall_customers_scale, 
+             kmeans, 
+             method = "gap_stat", 
+             nstart = 25, 
+             k.max = 10)
+```
+
+it is pointing toward k = 5 again, we will go with that
+
+### 4. Visualise the clustering for your chosen value of k.
+k = 5
+
+```{r}
+clusterings %>% 
+  unnest(augmented)
+```
+
+
+```{r}
+clusterings %>% 
+  unnest(cols = c(augmented)) %>%
+  filter(k == 5) %>%
+  ggplot(aes(x = annual_income_k, y = spending_score_1_100, colour = .cluster)) +
+    geom_point(aes(color = .cluster)) 
+```
+
+### 5. Do you think the clustering seems a good fit for this data?
+
+yes, looking good! The 5 clusters is well distinguished
+
+### 6. Comment on the attributes on one or two of the clusters (maybe even give them a label if you like - like in section 4.1 of the ‘Segmentation & clustering intro’ lesson).

@@ -1,0 +1,128 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Clustering Lab
+Use k-means clustering to investigate potential relationships in the dataset students_big from the CodeClanData library.
+
+1 Part a
+We’ve been asked to create clusters of students for the answers to the ‘importance’ questions (where students rate how important they find certain topics on a scale from 0 to 1000, the higher the number the more important they think the issue is).
+
+
+If we are to use the mathematical methods (elbow etc.) what would your optimal value of k been? Do you think the data seems well suited to cluster.
+
+```{r}
+library(tidyverse)
+library(CodeClanData)
+library(broom)
+library(factoextra)
+```
+
+```{r}
+head(students_big)
+```
+
+```{r}
+students_big_tidy <- students_big %>% 
+  mutate(ID = row_number()) %>% 
+  select("ID", starts_with("importance_")) %>% 
+  column_to_rownames("ID")
+
+dim(students_big_tidy)
+head(students_big_tidy)
+```
+### We have 6 variables in our data set. There all have the same scale of 0 to 1000 which means no standardization is needed here, they already weigh equallly by default.
+
+```{r}
+students_big_tidy %>%
+  as_tibble() %>%
+  pivot_longer(cols = c(1:6), 
+               names_to = "type", 
+               values_to = "value") %>% #convert data to long format
+  group_by(type)%>%
+  summarise(mean = round(mean(value)), 
+            sd = sd(value))
+```
+
+### calculation methods used to choose k
+
+### 1. Elbow method
+
+```{r}
+# Set min & max number of clusters want to look at 
+max_k <- 10 
+
+k_clusters <- tibble(k = 1:max_k) %>%
+  mutate(
+    kclust = map(k, ~ kmeans(students_big_scale, .x, nstart = 25)), 
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, students_big_scale)
+  )
+
+k_clusters
+```
+
+```{r}
+clusterings <- k_clusters %>%
+  unnest(glanced)
+
+clusterings
+```
+Vizualize the elbow method 
+
+```{r}
+ggplot(clusterings, aes(x=k, y=tot.withinss)) +
+  geom_point() +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 20, by = 1))
+```
+
+can't really tell where the gradient begins to level off..
+
+### 2. Silhouette coefficient
+
+```{r}
+library(cluster)
+
+#Chosen k=10 as an example 
+cluster_list_k10 <-  clusterings %>% 
+  unnest(augmented) %>%
+  filter(k == 10) %>%
+   select(.cluster) %>%
+    pull()
+  
+ 
+sil <- silhouette(as.numeric(cluster_list_k10), 
+                  dist(students_big_tidy))
+
+fviz_silhouette(sil)
+```
+
+A value of k=10 is maximum!
+
+```{r}
+fviz_nbclust(students_big_tidy, 
+             kmeans, 
+             method = "silhouette", 
+             nstart = 25)
+```
+A value of k = 2 is the maximum!
+
+### 3. Gap statistic
+
+```{r}
+fviz_nbclust(students_big_tidy, 
+             kmeans, 
+             method = "gap_stat", 
+             nstart = 25, 
+             k.max = 10)
+```
+
+Using the gap statistic we get that k = 2 is the optimal number of clusters.
+
+### Conclusion: All 3 methods gave us quite different results which can be a sign that our data is not well suited for k-means clustering
+ 
+
+ 
