@@ -95,8 +95,8 @@ glmulti_search_all_mains <- glmulti(
   crit = bic,                        # criterion for selecting best models. 
   confsetsize = 10,                  # how many models should glmulti() return? keep 10 best models
   plotty = FALSE,                    # provide progress plots? Generally annoying.
-  report = FALSE,                     # provide progress reports? Generally useful.
-  fitfunction = "glm",               # use lm() as fit function. Can also use glm() for logistic regression.
+  report = FALSE,                    # provide progress reports? Generally useful.
+  fitfunction = "glm",               # use glm() as fit function (logistic regression). Use lm() for linear regression.
   family = binomial(link = "logit")) # binomial family for logistic regression
 
 summary(glmulti_search_all_mains)
@@ -175,6 +175,11 @@ glmulti_search_previous_mains_one_pair@formulas[[10]]
 glmulti_search_previous_mains_one_pair@objects[[10]]
 ```
 
-### Conclusion: I split the data set containing information on sales of orange juice into train and test data sets. Using the train data set, I developed 10 best logistic regresion models, containing main effects and one pair wise interation as explanatory variables. I then applied these models onto the test data set and calculated root-mean-square error (RMSE) for each of the models. This model came as the best model over all (lowest RMSE = 2.981748):
+## Conclusion: 
+### I split the data set containing information on sales of orange juice into train and test data sets. 
+### Using the train data set, I developed 10 best logistic regresion models, containing main effects.
+### Then I also added pair wise interations for variables already assigned as main efects in the models. 
+### I then applied these models onto the test data set and calculated root-mean-square error (RMSE) for each of the models.
+### This model came as the best one over all (i.e. showing the lowest RMSE of 2.981748):
 *purchase_mm ~ 1 + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_mm:price_mm + pct_disc_ch:pct_disc_mm*
  
