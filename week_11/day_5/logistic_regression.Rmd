@@ -1,0 +1,180 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+1 MVP
+You have been provided with a set of data on customer purchases of either ‘Citrus Hill’ (purchase = 'CH') or ‘Minute Maid’ (purchase = 'MM') orange juice, together with some further attributes of both the customer and the store of purchase. A data dictionary is also provided in the data directory.
+
+We would like you to build the best predictive classifier you can of whether a customer is likely to buy Citrus Hill or Minute Maid juice. Use logistic regression to do this. You should use either train-test splitting or cross-validation to evaluate your classifier. The metric for ‘best classifier’ will be highest AUC value either in the test set (for train-test splitting) or from cross-validation.
+
+Issues we faced, thoughts we had
+
+This is quite a tough, open-ended exercise. We decided early on to use an automated approach to model selection using glmulti(), but feel free to use a manual approach if you prefer!
+The Purchase dependent variable will require wrangling to work in logistic regression. We replaced it with a purchase_mm logical variable.
+Wrangle other categorical variables to be factors too.
+WeekOfPurchase is also quite tough to deal with: should it be added as a factor variable (it will lead to many coefficients), left as numeric, or omitted entirely? See if you can come up with a strategy to decide what to do with it.
+Check for aliased variables and remove any aliases before you set off to find your best models. Remember, you can use something like alias(purchase_mm ~ ., data = oj) to do this, the dot . here means ‘all variables’. Aliased variables will be listed down the left-hand side, and you can subsequently remove them.
+
+glmulti() hints
+
+If you decide to use glmulti() be prepared for your R session to hang if you decide to abort a run! The reason for this is that glmulti() actually uses a separate Java runtime to do its thing in the background, and unfortunately R can’t instruct Java to terminate on request. D’oh! Accordingly, make sure you save any changes to your work before each glmulti() run. That way, you can force quit RStudio if necessary without losing work.
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(glmulti) # Automated model selection and model-averaging, automatically generating all possible models (under constraints set by the user) with the specified response and explanatory variables, and finding the best models in terms of some Information Criterion (AIC, AICc or BIC)
+library(caret) # to perform train-test splitting
+library(broom)
+
+orange_juice <- read_csv("data/orange_juice.csv") %>% clean_names()
+
+glimpse(orange_juice)
+```
+
+```{r}
+# check there is no NA - OK!
+orange_juice %>% 
+  summarise(across(.fns = ~ sum(is.na(.x))))
+```
+
+```{r}
+# tidy data for logistic regression
+# store, store_id and store 7 carry the same information, I keep just store_id
+# change character variables to factor
+orange_juice <- orange_juice %>% 
+  mutate(
+    purchase_mm = ifelse(purchase == "MM", 1, 0) %>% as.factor(),
+    weekof_purchase = as.factor(weekof_purchase),
+    store_id = as.factor(store_id),
+    special_ch = as.factor(special_ch),
+    special_mm = as.factor(special_mm)
+  ) %>% 
+  select(-c(weekof_purchase, store, store7, purchase))
+
+glimpse(orange_juice)
+```
+
+```{r}
+# check for remaining aliases
+alias(purchase_mm ~ ., data = orange_juice)
+```
+```{r}
+orange_juice <- orange_juice %>% 
+  select(-c(sale_price_mm, sale_price_ch, price_diff, list_price_diff))
+```
+
+```{r}
+# train-test splitting. The createDataPartition() function has the nice feature that it takes in a y= argument specifying outcomes, and it will try to ensure similar distributions of those outcomes in train and test sets
+train_index <- createDataPartition(orange_juice$purchase_mm, p = 0.8, list = FALSE, times = 1)
+
+train <- orange_juice[train_index, ]
+test <- orange_juice[-train_index, ]
+```
+
+```{r}
+# check the distribution of outcome (target) variable purchase_mm is similarly distributed in both train and test data sets - OK!
+train %>%
+  ggplot(aes(x = purchase_mm)) +
+  geom_bar()
+
+test %>%
+  ggplot(aes(x = purchase_mm)) +
+  geom_bar()
+```
+
+### All-subset linear regression using glm() based on BIC
+
+```{r}
+# use glmulti() for predictor selection
+glmulti_search_all_mains <- glmulti(
+  purchase_mm ~ .,                   # model to fit, in this case, purchase_mm varies with everything (.)
+  data = train,                      # data to use for fitting
+  level = 1,                         # level = 2 means try pairwise interactions. level = 1 means main effects only
+  method = "h",                      # method "d" means trial run, to get size of problem. Set to "h" for exhaustive search, or "g" for genetic algorithm
+  crit = bic,                        # criterion for selecting best models. 
+  confsetsize = 10,                  # how many models should glmulti() return? keep 10 best models
+  plotty = FALSE,                    # provide progress plots? Generally annoying.
+  report = FALSE,                     # provide progress reports? Generally useful.
+  fitfunction = "glm",               # use lm() as fit function. Can also use glm() for logistic regression.
+  family = binomial(link = "logit")) # binomial family for logistic regression
+
+summary(glmulti_search_all_mains)
+```
+
+```{r}
+# show 10 best models
+glmulti_search_all_mains@formulas
+```
+```{r}
+## show result for the best model
+summary(glmulti_search_all_mains@objects[[1]])
+```
+
+### found the best model using main effect only (lowest BIC): 
+*purchase_mm ~ 1 + price_ch + price_mm + disc_mm + loyal_ch + pct_disc_mm + pct_disc_ch*
+
+```{r}
+# add pairwise interactions to the best main effect model
+glmulti_search_previous_mains_one_pair <- glmulti(
+  purchase_mm ~ 1 + price_ch + price_mm + disc_mm + loyal_ch + pct_disc_mm + pct_disc_ch,
+  data = train,                      # data to use for fitting
+  level = 2,                         # level = 2 means try pairwise interactions. level = 1 means main effects only
+  method = "h",                      # method "d" means trial run, to get size of problem. Set to "h" for exhaustive search, or "g" for genetic algorithm
+  crit = bic,                        # criterion for selecting best models. 
+  confsetsize = 10,                  # how many models should glmulti() return? keep 10 best models
+  marginality = TRUE,                # marginality true means include pairwise interaction only if both main effects present in model
+  minsize = 6,                       # minsize, maxsize and marginality here force 
+  maxsize = 6,                       # inclusion of a single pair beyond the five main effects
+  plotty = FALSE, 
+  report = TRUE,                     # no plots, but provide interim reports
+  fitfunction = "glm",               # glm function
+  family = binomial(link = "logit")) # binomial family for logistic regression
+
+summary(glmulti_search_previous_mains_one_pair)
+```
+
+```{r}
+glmulti_search_previous_mains_one_pair@formulas
+```
+```{r}
+## show result for the best model containing pairwise interaction
+glmulti_search_previous_mains_one_pair@objects[[1]]
+```
+
+### found the best model using main effect only, added one pairwise interaction and found the best model (lowest BIC):
+*purchase_mm ~ 1 + price_ch + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_mm:price_mm*
+
+Let’s use each of these 10 saved model objects (remember they have been trained on the train set) to predict `purchase_mm` for the test set and then calculate RMSE for each model on the test set
+
+Note. 
+RMSE - root-mean-square error
+measure of the differences between values (sample or population values) predicted by a model or an estimator and the values observed
+a lower RMSD is better than a higher one
+
+```{r}
+rmse_results <- numeric(10)
+for (i in 1:10){
+  this_model <- glmulti_search_previous_mains_one_pair@objects[[i]]
+  predictions <- predict(this_model, newdata = test)
+  rmse_results[i] <- sqrt(mean((predictions - as.numeric(test$purchase_mm))^2)) # need to change factor to numeric data type to allow calculations
+}
+
+rmse_results
+```
+
+```{r}
+# plot the RMSE for each model on test data set
+plot(rmse_results)
+```
+
+```{r}
+## show the model with lowest RMSE
+glmulti_search_previous_mains_one_pair@formulas[[10]]
+
+glmulti_search_previous_mains_one_pair@objects[[10]]
+```
+
+### Conclusion: I split the data set containing information on sales of orange juice into train and test data sets. Using the train data set, I developed 10 best logistic regresion models, containing main effects and one pair wise interation as explanatory variables. I then applied these models onto the test data set and calculated root-mean-square error (RMSE) for each of the models. This model came as the best model over all (lowest RMSE = 2.981748):
+*purchase_mm ~ 1 + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_mm:price_mm + pct_disc_ch:pct_disc_mm*
+ 
