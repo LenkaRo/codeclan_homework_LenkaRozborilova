@@ -26,6 +26,8 @@ library(janitor)
 library(glmulti) # Automated model selection and model-averaging, automatically generating all possible models (under constraints set by the user) with the specified response and explanatory variables, and finding the best models in terms of some Information Criterion (AIC, AICc or BIC)
 library(caret) # to perform train-test splitting
 library(broom)
+library(modelr)
+library(pROC) # draw ROC curves directly from data including actual and predicted classes
 
 orange_juice <- read_csv("data/orange_juice.csv") %>% clean_names()
 
@@ -66,6 +68,9 @@ orange_juice <- orange_juice %>%
 
 ```{r}
 # train-test splitting. The createDataPartition() function has the nice feature that it takes in a y= argument specifying outcomes, and it will try to ensure similar distributions of those outcomes in train and test sets
+
+set.seed(123)
+
 train_index <- createDataPartition(orange_juice$purchase_mm, p = 0.8, list = FALSE, times = 1)
 
 train <- orange_juice[train_index, ]
@@ -137,15 +142,16 @@ summary(glmulti_search_previous_mains_one_pair)
 ```{r}
 glmulti_search_previous_mains_one_pair@formulas
 ```
+
 ```{r}
 ## show result for the best model containing pairwise interaction
 glmulti_search_previous_mains_one_pair@objects[[1]]
 ```
 
-### found the best model using main effect only, added one pairwise interaction and found the best model (lowest BIC):
+### found the best model using main effect only (AIC: 653.46), added one pairwise interaction and found the new best model with the lowest BIC (AIC: 651.7):
 *purchase_mm ~ 1 + price_ch + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_mm:price_mm*
 
-Let’s use each of these 10 saved model objects (remember they have been trained on the train set) to predict `purchase_mm` for the test set and then calculate RMSE for each model on the test set
+Let’s use each of these 10 saved model objects (remember they have been trained on the train set) to predict `purchase_mm` for the *test* set and then calculate RMSE for each model on the test set
 
 Note. 
 RMSE - root-mean-square error
@@ -175,11 +181,65 @@ glmulti_search_previous_mains_one_pair@formulas[[10]]
 glmulti_search_previous_mains_one_pair@objects[[10]]
 ```
 
+```{r}
+# let's run and save my best model
+model_best <- glm(purchase_mm ~ 1 + price_ch + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_ch:pct_disc_mm,
+                  data = orange_juice,
+                  family = binomial(link = 'logit'))
+
+# add predictors (column saved as `pred`)
+orange_juice_with_model_best <- orange_juice %>%
+  add_predictions(model_best, type = "response")
+head(orange_juice_with_model_best)
+```
+
+```{r}
+# let's look at the confusion matrix
+# I set the "optimum" threshold to 0.5
+threshold <- 0.5
+
+# add column showing prediction as either TRUE or FALSE
+orange_juice_with_model_best <- orange_juice_with_model_best %>%
+  mutate(pred_thresh_0.5 = pred >= threshold)
+
+head(orange_juice_with_model_best)
+
+# confusion matrix
+orange_juice_with_model_best %>%
+  tabyl(purchase_mm, pred_thresh_0.5)
+```
+
+```{r}
+# ROC (receiver operating characteristic curve)
+roc_best_model <- orange_juice_with_model_best %>%
+  roc(response = purchase_mm, predictor = pred)
+
+# plot ROC (the closer the curve is to the top left corner, the more effective the classifier)
+# this gives me a visual representation of the performance of my classifiers (= model_best)
+roc_curve <- ggroc(data = roc_best_model, legacy.axes = TRUE) +
+  coord_fixed()
+roc_curve
+```
+
+```{r}
+# AUC (are under curve) gives me an exact number as a measure of performance of my classifier
+# the higher AUC the better
+AUC <- auc(roc_best_model, )
+AUC
+
+# GINI coefficient (normalised AUC so that a random classifier has value 0, and a perfect classifier has value 1)
+GINI <- 2 * AUC - 1
+GINI
+```
+
 ## Conclusion: 
 ### I split the data set containing information on sales of orange juice into train and test data sets. 
-### Using the train data set, I developed 10 best logistic regresion models, containing main effects.
-### Then I also added pair wise interations for variables already assigned as main efects in the models. 
-### I then applied these models onto the test data set and calculated root-mean-square error (RMSE) for each of the models.
-### This model came as the best one over all (i.e. showing the lowest RMSE of 2.981748):
-*purchase_mm ~ 1 + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_mm:price_mm + pct_disc_ch:pct_disc_mm*
+### Using the *train* data set, I developed 10 best logistic regresion models (based on the lowest BIC), containing main effects only.
+### Then I also added pair wise interations for variables already assigned as main efects in the models and again listed 10 best models.
+### I then applied these models onto the *test* data set and calculated root-mean-square error (RMSE) for each of the models.
+### This model came as the best one over all (based on the lowest RMSE = 2.973292):
+*ppurchase_mm ~ 1 + price_ch + price_mm + loyal_ch + pct_disc_mm + pct_disc_ch + pct_disc_ch:pct_disc_mm*
+### I looked at the model performance - calculated confusion matrix (TP + TN = 888, FP + FN = 182), 
+                                        plotted ROC curve,
+                                        calculated AUC (= 0.8995) and GINI (= 0.7989908).
  
